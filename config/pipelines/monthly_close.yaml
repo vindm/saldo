@@ -1,0 +1,32 @@
+# Deterministic monthly accounting cycle (declared pipeline).
+# Stages are ORDERED. A client's position for a period = the earliest stage that
+# still has open tasks. Stage membership is by task_type (source of truth = state).
+# This file is the declared source — the engine reads it; it invents nothing.
+pipeline: monthly_close
+stages:
+  - code: primary_collection
+    title: { ru: "Сбор первички",                en: "Collect source docs" }
+    task_types: [primary_collection]
+    checklist: первичка_месяца
+  - code: posting_1c
+    title: { ru: "Разноска в 1С",                en: "Post to 1C" }
+    task_types: [kudir_posting, technical_1c]
+    checklist: разноска_первички_в_1С
+  - code: month_close
+    title: { ru: "Закрытие месяца",              en: "Month close" }
+    task_types: [month_close, period_close]
+  - code: month_audit
+    title: { ru: "Аудит месяца",                 en: "Month audit" }
+    task_types: [month_audit]
+  - code: tax_pp
+    title: { ru: "Расчёт + уведомление + ПП",    en: "Calc + notice + payment order" }
+    task_types: [pp_to_form, notification, ausn_monthly]
+    checklist: ПП_на_ЕНП
+  - code: sign_pay
+    title: { ru: "Подпись / оплата",             en: "Sign / pay" }
+    task_types: [pp_sign]
+
+# Parallel inputs that unblock stages 2–3 but are NOT pipeline stages themselves.
+feeders: [bank_check, acquiring_reconciliation, ausn_reconciliation,
+          ausn_markup_review, ausn_bank_marking, kkt_check, ens_reconciliation,
+          sz_checks_reconciliation, balance_reconciliation]

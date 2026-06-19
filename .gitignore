@@ -1,0 +1,44 @@
+# ──────────────────────────────────────────────────────────────
+# DATA & SECRETS — never commit. A practice's real client data and
+# credentials live OUTSIDE this repo, referenced via config/instance.yaml.
+# ──────────────────────────────────────────────────────────────
+
+# Real practice data directories (clients, statements, state, history)
+/data/
+/data-*/
+instances/*/data/
+**/state/
+**/history.jsonl
+**/mental_model.md
+clients_index.json          # real roster (the example one is committed explicitly)
+!instances/example/**/clients_index.json
+
+# Secrets & credentials
+**/секреты/
+**/secrets/
+*.session
+*_api.json
+*.key
+*.pem
+.env
+.env.*
+
+# Generated dashboards (may contain client data when run on a real instance)
+*.html
+!docs/**/*.html
+
+# Backups, caches, OS noise
+*.bak_*
+*.before_rerun_*
+__pycache__/
+*.pyc
+.DS_Store
+.obsidian/
+
+# Office binaries (often carry client-specific content)
+*.docx
+*.xlsx
+*.xls
+*.pdf
+*.zip
+*.doc

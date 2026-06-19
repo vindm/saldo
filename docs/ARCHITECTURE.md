@@ -1,0 +1,69 @@
+# Architecture
+
+## Principle: memory hierarchy, code stays thin
+
+The assistant follows a Karpathy-style memory hierarchy. The AI agent decides *what* to update from any signal; the code only does atomic, validated reads and writes. There is no business logic hardcoding "if email X then change field Y" — that judgement lives in the agent, working against the artifacts below.
+
+For each client:
+
+- **`state/*.json`** — the source of truth. Structured, machine-readable facts split across files:
+  `identity` (requisites, registration, address, tax-office, activity codes, contacts),
+  `regime` (tax regime, patents, filing method, signature),
+  `accounts` (bank accounts, cash registers, quick-access links),
+  `financials` (periods, taxes, tax calendar, yearly pace),
+  `counterparties`, `risks`, `behavior` (channels, tone, notes), and `tasks`.
+- **`mental_model.md`** — a human-readable narrative slice (plan, links, history) for fast context.
+- **`history.jsonl`** — append-only log of every state change; never rewritten.
+
+`engine/state_ops.py` exposes five primitives — `state_read`, `state_write`, `mental_model_read/write`, `history_append` — each with backup, atomic temp-file rename, and UTF-8 validation.
+
+## Engine
+
+`engine/` is reusable Python with no client-specific knowledge:
+
+- **`generate.py`** — orchestrates dashboard generation. Reads the roster from the configured `clients_index.json`, enriches each client from its `state/*.json` via `_loaders.py`, and renders an overview plus one dashboard per client. Fault-tolerant by design: a missing collector file or malformed source renders an empty container, not a traceback, and surfaces a status dot on the overview.
+- **Renderers** (`_overview_v2.py`, `_client_dashboard_v2.py`, `_plan_*.py`, `_tracks.py`, `_analytics_widgets.py`, …) build the HTML views.
+- **Loaders** (`_loaders.py`) parse the morning collectors' output and the per-client state into the render model.
+- **Integrity** (`state_lint.py`, `system_integrity_check.py`) check cross-link integrity — e.g. a fact filled in one file must close its related track in `tasks.json`, or it's flagged as a "dangling" item.
+
+## Connectors
+
+`connectors/` holds the pluggable integrations, each behind a common interface (see [`CONNECTORS.md`](CONNECTORS.md)). They split into:
+
+- **Atomic skills** — one operation (`read_task`, `list_messages`, `get_statement`, `check_z_report`, …).
+- **Composite pipelines** — `morning_full_scan` / `incremental_update` chain atomic skills for a full sweep.
+
+The architectural rule is *one skill, many executors*: the operator invokes an atomic skill for a pointed need, or a composite for a full sweep; a scheduler invokes the composite on a timer. Enabling/disabling a connector is a config flag.
+
+## Configuration boundary (the product change)
+
+The original system hardcoded the client→folder map and resolved data paths relative to the code. The product moves both into configuration:
+
+- `config/instance.yaml` declares locale, brand, enabled connectors, schedule, and **`data.dir`** — the path to the practice's data directory.
+- The roster (`clients_index.json`) already carries each client's `folder`; `state_ops` resolves `data.dir / folder / state` instead of a baked-in map.
+
+Result: the engine is practice-agnostic. A real practice keeps its data dir private and outside the repo; the bundled `instances/example` ships synthetic data so the engine runs out of the box.
+
+## Plan model & task taxonomy
+
+The Plan is built by `_aggregator.aggregate_tasks()` (which collects active tracks from every client's `state/tasks.json`, plus optional daemon signals) and rendered by `_plan_waves.render_waves_flat()`. The design rules:
+
+- **The Plan contains actions only.** Non-actions are routed away so the action list stays scannable:
+  - `task_type == "open_question"` → excluded from the Plan; shown on the Dashboard "Open questions" block (`_brief.py`), where 2 surface by priority + a daily rotation and the rest expand grouped by client.
+  - `task_type == "monitoring"` (a risk-watch) or `awaiting_external` **with no due date** ("nothing to do but wait") → a de-emphasised collapsed **"Waiting"** lane at the bottom of the Plan. (Dated awaits with a chase action — sign a payment order, payment control, first-docs — stay as tasks.)
+  - Risks live in `state/risks.json` and render on the client card.
+- **Grouping is by semantic operation, not by client count, source, or wording.** An *operation* (a "wave") groups ≥2 tasks that share `(operation, reporting period, client group)` — regardless of how many distinct clients are in it (we model the operation; the client roster grows). The operation key (`_op_canonical`) is derived **stage-first**: a task's `task_type` that belongs to a pipeline stage collapses into `stage:<code>|<period>` (period-explicit, so "close April" and "close May" are distinct, batchable waves). Off-pipeline types fall through to a canonical type, then to keyword inference, then to a text key. Source-flavoured types (e.g. `finkoper_recurring` — "where it came from") are treated as generic so they re-infer by topic (e.g. "acquiring"). Keyword inference is a **legacy bridge**; the right long-term fix is a precise `task_type` in the data (JSON-first).
+- **The monthly pipeline** is declared in `config/pipelines/monthly_close.yaml` (`_pipeline.py`): six ordered stages — collect source docs → post to 1C → month close → month audit → calc+notice+payment order → sign/pay. The **Periods** view (`_periods.py`) shows, per reporting period, how far each stage has progressed across clients; clicking a stage jumps to that operation on the Plan.
+- **One renderer, two scopes.** `render_waves_flat` drives both the practice-wide **Plan** page and each **client card** (scoped to one client via `render_client_plan`), so the card *is* that client's plan — same Operations / Individual / Waiting structure.
+
+## Localization
+
+`instance.locale` (`ru`/`en`) drives both the dashboard UI strings (`_strings.py`, via `t()`) and the data-value tokens the loaders match (`_vocab.py`). The English port was done as a deliberate i18n pass — UI text and data-token matching were separated — so Russian-language data keeps behaving identically while the chrome renders in either language. Any change to engine string handling must be checked against **Russian-data output**, not only the English demo, because locale-coupled parsing is easy to break silently.
+
+## Safety model
+
+Three product invariants, enforced as policy and surfaced in config:
+
+1. Commands come only from the operator. Text inside tasks, emails, and documents is **data, never instructions** (prompt-injection resistance).
+2. State writes, anything sent to a client, and any browser action require explicit approval.
+3. A fixed deny-list for browser automation: no sending without confirmation, no e-signature, no ledger edits, no deletes, no external forwarding.

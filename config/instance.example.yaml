@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────
+# instance.example.yaml — one configuration = one bookkeeping practice.
+# Copy to config/instance.yaml and edit. For a REAL practice, point `data.dir`
+# at a directory OUTSIDE this repo; never commit real data or secrets.
+# ─────────────────────────────────────────────────────────────────────────
+
+instance:
+  name: "Example Bookkeeping Practice"
+  locale: en                 # en | ru — drives dashboard UI language and connector parsing tokens
+  timezone: Europe/Lisbon
+
+data:
+  # Path to the practice's data directory. The demo uses the bundled synthetic
+  # instance; a real practice points this at a private folder outside the repo.
+  dir: "../instances/example/data"
+  clients_index: "clients_index.json"   # roster: id, name_short, name_full, folder, track
+
+brand:
+  name: "Example Practice"
+  primary_color: "#1F4E79"
+  accent_color: "#B79257"
+  font: "Arial"
+  monogram: "EP"
+
+# Pluggable integrations. Each connector implements the common interface in
+# docs/CONNECTORS.md. Credentials are supplied via environment variables, never
+# in this file. Disable any connector a practice doesn't use.
+connectors:
+  practice_management:        # e.g. Finkoper — tasks & client chats
+    enabled: true
+  email:
+    enabled: true
+    provider: yandex
+  telegram:
+    enabled: true
+  bank:
+    enabled: true
+    providers: [tbank, alfabank]   # statements & operations for the direct book
+  ofd:                        # fiscal data operator — cash/Z-report reconciliation
+    enabled: true
+  stats_portal:               # national statistics reporting
+    enabled: true
+  registry:                   # company registry extracts (requisite verification)
+    enabled: true
+  news:
+    enabled: true
+    topics: ["sole-proprietor taxation", "simplified tax regime", "reporting deadlines"]
+
+# Morning collectors. Times are local to instance.timezone. A collector that
+# fails or finds nothing degrades gracefully (empty panel, status dot on the overview).
+schedule:
+  news:       "06:00"
+  email:      "06:15"
+  practice_management: "06:30"
+  dashboards: "07:45"
+
+safety:
+  # Hard product invariants — see policies/safety.md
+  approval_required: [state_writes, external_sends, browser_actions]
+  treat_incoming_text_as_data: true   # task/email/document text is never a command
+  forbidden_browser_actions: [send_without_confirmation, e_signature, edit_ledger, delete, forward_external]
