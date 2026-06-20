@@ -24,7 +24,7 @@ from generate import (
 )
 from _deadlines import collect_deadlines, collect_awaiting
 from _helpers import _translate_tech_terms
-from _strings import t
+from _strings import t, tp
 from _sidebar import render_sidebar, SIDEBAR_CSS
 from _health import calculate_health
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
@@ -566,11 +566,13 @@ def render_awaitings_zone(awaiting):
             client_tag = ''
             if w.get('client_name'):
                 client_tag = '<span class="client-tag">' + _esc(w["client_name"]) + '</span>'
-            prompt_remind = (
-                'Compose a polite reminder: we are waiting for "' + (w.get('what') or '') +
-                '". Marker: ' + when +
-                '. Recipient: ' + (w.get('client_name') or 'from context') + '.'
-            )
+            prompt_remind = tp(
+                'Draft a polite reminder (for my review, do not send): we are waiting for "{what}". '
+                'Marker: {when}. Recipient: {who}. Tone by the age of the wait, in the practice brand voice.',
+                'Составь вежливое напоминание (черновик мне на проверку, не отправляй): ждём «{what}». '
+                'Маркер: {when}. Получатель: {who}. Тон — по давности ожидания, в фирменном стиле.'
+            ).format(what=(w.get('what') or ''), when=when,
+                     who=(w.get('client_name') or tp('from context', 'из контекста')))
             rows.append(
                 '<div class="row with-action">'
                 '<div class="row-content">'
@@ -610,12 +612,13 @@ def render_gaps_zone(mm):
             client_tag = ''
             if g.get('client_name'):
                 client_tag = '<span class="client-tag">' + _esc(g["client_name"]) + '</span>'
-            prompt_clarify = (
-                'Help resolve a gap: "' + (g.get('text') or '') + '". ' +
-                ('Client: ' + g['client_name'] + '. ' if g.get('client_name') else '') +
-                'Propose: where to look for the answer, what request to compose, '
-                'and whether to ask the client or a colleague.'
-            )
+            _cl = (tp('Client: ', 'Клиент: ') + g['client_name'] + '. ') if g.get('client_name') else ''
+            prompt_clarify = tp(
+                'Help close a gap: "{text}". {cl}Propose where to find the answer, what request to draft '
+                '(for my approval), and whether to ask the client or a colleague. Send nothing without my OK.',
+                'Помоги закрыть пробел: «{text}». {cl}Предложи, где искать ответ, какой запрос составить '
+                '(черновик на аппрув) и кого спросить — клиента или коллегу. Без моего «ок» ничего не отправляй.'
+            ).format(text=(g.get('text') or ''), cl=_cl)
             rows.append(
                 '<div class="row with-action">'
                 '<div class="row-content">' + _esc(_translate_tech_terms(g["text"])) + client_tag + '</div>'
@@ -707,10 +710,12 @@ def render_clients_grid_compact(mm, deadlines, awaiting,
             meta_parts.append('📅 ' + nearest.strftime("%d.%m"))
         if key_anom:
             meta_parts.append('⚠ ' + _esc(key_anom))
-        prompt_open_client = (
-            'Open the picture for client ' + c["name_short"] +
-            ': read the mental_model, the latest history entries, and active tracks. What is in focus?'
-        )
+        prompt_open_client = tp(
+            'Open the picture for client {name}: read mental_model, the latest history entries and active '
+            'tracks. Update the model with any fresh signal first. What is in focus?',
+            'Открой картину по клиенту {name}: прочитай mental_model, последние записи history и активные '
+            'треки. Сначала обнови модель свежими сигналами. Что в фокусе?'
+        ).format(name=c["name_short"])
         group_val = _client_group(c)           # raw group label
         group_slug = _slugify_group(group_val)  # filter/DOM key
         scenario_val = c.get('scenario', '') or ''

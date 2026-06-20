@@ -7,7 +7,76 @@ v1.2 — breadcrumb on top (Dashboard › Client › Track), Dashboard button re
 Created 2026-05-24.
 """
 
+import json
 from _strings import t
+from _config import LOCALE
+
+
+def _loc(en, ru):
+    """Pick a localized literal for ru, else the English source."""
+    return ru if LOCALE == 'ru' else en
+
+
+# Russian labels for the "Details" (type_specific) rail. Injected into the modal
+# JS as TS_RU_LOC (preferred over the English TS_RU map); empty under en.
+_TS_RU_LOC = {
+    "amount": "Сумма", "amount_estimated": "Сумма (оценка)", "kbk": "КБК",
+    "payment_date": "Дата платежа", "payment_doc": "Платёжный документ", "payment_due": "Срок платежа",
+    "paid_amount": "Оплачено (сумма)", "paid_at": "Оплачено", "awaiting_from": "Ждём от",
+    "awaiting_for": "Ждём для", "awaiting_contact": "Ждём контакт", "awaiting_since": "Ждём с",
+    "awaiting_expected_by": "Ожидается к", "expected_by": "Ожидается к",
+    "expected_amount_estimate": "Ожидаемая сумма (оценка)", "silence_days": "Дней тишины",
+    "overdue_days": "Дней просрочки", "since": "С", "channel": "Канал", "channels": "Каналы",
+    "period": "Период", "file": "Файл", "files": "Файлы", "bank": "Банк", "contractor": "Контрагент",
+    "counterparty_id": "Контрагент (ID)", "category": "Категория", "raised_at": "Заведено",
+    "internal_deadline": "Внутренний дедлайн", "fns_deadline": "Дедлайн ФНС",
+    "fns_notification_due": "Срок уведомления ФНС", "patent_period": "Период патента",
+    "apply_date": "Дата подачи", "effective_from": "Действует с", "access": "Доступ",
+    "breakdown": "Расшифровка", "cancel_reason": "Причина отмены", "cancelled_reason": "Причина отмены",
+    "cancelled_at": "Отменено", "cancelled_note": "Примечание к отмене", "closed_reason": "Причина закрытия",
+    "dismissed_reason": "Причина снятия", "reason_dropped": "Причина отклонения",
+    "contract_via": "Договор через", "count": "Количество", "departed_at": "Ушёл",
+    "departed_to": "Ушёл в", "dormant_during_pause": "Спит на паузе", "form": "Форма",
+    "frequency": "Частота", "recurrence": "Повторяемость", "incident_date": "Дата инцидента",
+    "invoice_number": "Номер счёта", "is_finalization": "Финализация", "items": "Позиции",
+    "law_refs": "Ссылки на закон", "needed_for": "Нужно для", "promised_at": "Обещано",
+    "promised_by": "Обещал", "reactivation_trigger": "Триггер реактивации", "receipt_npd": "Чек НПД",
+    "replaced_by": "Заменено на", "request_sent_at": "Запрос отправлен", "resolution": "Решение",
+    "resolved_at": "Решено", "responsibility": "Ответственность", "service": "Сервис",
+    "sources": "Источники", "system": "Система", "sz_list": "Список самозанятых", "targets": "Цели",
+    "tax_due_date": "Срок уплаты налога", "tax_paid_amount": "Налог уплачен (сумма)",
+    "tax_paid_date": "Дата уплаты налога", "topic": "Тема", "topics": "Темы", "trigger": "Триггер",
+    "verification_needed": "Требуется проверка", "uuid": "UUID",
+    "remaining_operations": "Осталось операций", "account_id": "Счёт", "blocking_what": "Что блокирует",
+    "dismissed_at": "Снято", "dismissed_by": "Снял", "dismissed_note": "Примечание к снятию",
+    "finkoper_tasks": "Задачи Finkoper", "finkoper_task_url": "Ссылка на задачу",
+    "change_date": "Дата изменения", "auditor": "Аудитор", "reminder_at": "Напоминание",
+    "debit": "Дебет", "credit": "Кредит", "balance_end": "Исходящий остаток",
+    "paid_outside_rs": "Оплачено вне счёта", "accounts_to_review": "Счета к проверке",
+    "period_covered": "Покрытый период", "control_check_at": "Контрольная проверка",
+    "status_detail": "Детализация статуса", "investigation_steps": "Шаги разбора",
+    "memory_refs": "Ссылки на память", "check_cycles": "Циклы проверки", "loaded_until": "Загружено до",
+    "balance_at_loaded": "Остаток на момент загрузки", "remaining_period": "Остаток периода",
+    "kassas_ids": "Кассы", "owner_role": "Роль ответственного", "kkt_status": "Статус ККТ",
+    "pending_corrections_amount": "Сумма к корректировке", "law_basis_penalty": "Норма (штраф)",
+    "law_basis_escape": "Норма (освобождение)", "monitor_url": "Ссылка мониторинга",
+    "target_regime": "Целевой режим", "okved": "ОКВЭД", "regions_candidate": "Регионы-кандидаты",
+    "estimated_economy_per_year_rub": "Экономия в год, ₽",
+    "psn_cost_spb_2026_per_vehicle_rub": "ПСН СПб 2026 за ТС, ₽",
+    "spn_income_limit_2026_rub": "Лимит дохода 2026, ₽",
+    "application_deadline_for_2026_07_01_start": "Срок подачи для старта с 01.07.2026",
+    "application_form": "Форма заявления", "taxi_permit_law": "Закон о такси-разрешении",
+    "pending_client_answers": "Ждём ответы клиента", "recommended_combo": "Рекомендуемая комбинация",
+    "package_files_count": "Файлов в пакете", "contract": "Договор",
+    "may_act_available_after": "Выписка за май доступна после",
+    "requested_systems": "Запрошенные системы", "check_items": "Пункты проверки",
+    "yearly_fixed": "Годовой фикс. взнос", "period_from": "Период с", "period_to": "Период по",
+    "tax_amount_may_2026": "Налог за май 2026", "blocker_resolution": "Снятие блокера",
+}
+
+
+def _ts_ru_loc_json():
+    return json.dumps(_TS_RU_LOC, ensure_ascii=False) if LOCALE == 'ru' else '{}'
 
 TRACK_MODAL_CSS = """
 .track-modal{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;
@@ -117,6 +186,9 @@ TRACK_MODAL_CSS = """
   line-height:1.6}
 .tm-typespecific-key{color:var(--text-muted);font-weight:500}
 .tm-typespecific-val{color:var(--text-primary)}
+.tm-tscontent-item{margin-bottom:10px}
+.tm-tscontent-k{font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}
+.tm-tscontent-v{font-size:15px;line-height:1.55;color:var(--text-primary);white-space:pre-wrap}
 
 .tm-labels{display:flex;flex-wrap:wrap;gap:6px}
 .tm-label-chip{font-size:15px;padding:3px 10px;border-radius:12px;background:#EEEEEC;
@@ -180,6 +252,10 @@ _TRACK_MODAL_HTML_TEMPLATE = """
           <div class="tm-section-label">__NEXT_ACTION__</div>
           <div class="tm-next-action" id="tm-next-body"></div>
         </div>
+        <div class="tm-section" id="tm-tscontent-section" style="display:none">
+          <div class="tm-section-label">__DETAILS_CONTENT__</div>
+          <div class="tm-section-body" id="tm-tscontent-body"></div>
+        </div>
         <div class="tm-section" id="tm-history-section" style="display:none">
           <div class="tm-section-label">__HISTORY__</div>
           <div class="tm-section-body tm-history-list" id="tm-history-body"></div>
@@ -228,6 +304,7 @@ TRACK_MODAL_HTML = (
     .replace('__NEXT_ACTION__', t('🎯 Next action'))
     .replace('__DEPENDENCIES__', t('🔒 Dependencies'))
     .replace('__DETAILS__', t('📑 Details'))
+    .replace('__DETAILS_CONTENT__', t('📋 Particulars'))
     .replace('__COMMENTS__', t('💬 Comments'))
     .replace('__REPLY_DRAFT__', t('💬 Draft reply to client'))
     .replace('__BREAK_DOWN__', t('🔍 Break down'))
@@ -363,7 +440,7 @@ TRACK_MODAL_JS = r"""
       elBcBadge.style.display = 'none';
     }
     elTitle.textContent = currentTrack.title;
-    btnDiscuss.setAttribute('data-prompt', 'Break down the task "' + (currentTrack.title || '') + '" for client ' + (currentTrack.clientName || '') + '. Open the client\'s state/*.json (source of truth) and mental_model (narrative), check related sources (Telegram/email/Finkoper) and reconcile the links. Suggest a concrete next action.');
+    btnDiscuss.setAttribute('data-prompt', '__DISCUSS_PRE__' + (currentTrack.title || '') + '__DISCUSS_MID__' + (currentTrack.clientName || '') + '__DISCUSS_POST__');
     if(currentTrack.context){
       elCtxBody.textContent = stripIds(currentTrack.context);
       elCtxSec.style.display = '';
@@ -504,17 +581,44 @@ TRACK_MODAL_JS = r"""
           trigger: 'Trigger', verification_needed: 'Verification needed', uuid: 'UUID',
           remaining_operations: 'Operations remaining', account_id: 'Account', blocking_what: 'Blocking what', dismissed_at: 'Dropped', dismissed_by: 'Dropped by', dismissed_note: 'Drop note', finkoper_tasks: 'Finkoper tasks', finkoper_task_url: 'Task link', change_date: 'Change date', auditor: 'Auditor', reminder_at: 'Reminder', debit: 'Debit', credit: 'Credit', balance_end: 'Closing balance', paid_outside_rs: 'Paid outside account', accounts_to_review: 'Accounts to review', period_covered: 'Period covered', control_check_at: 'Control check', status_detail: 'Status detail', investigation_steps: 'Investigation steps', memory_refs: 'Memory references', check_cycles: 'Check cycles', loaded_until: 'Loaded until', balance_at_loaded: 'Balance at load', remaining_period: 'Remaining period', kassas_ids: 'Cash registers', owner_role: 'Assignee role', kkt_status: 'Cash register status', pending_corrections_amount: 'Amount to correct', law_basis_penalty: 'Statute (penalty)', law_basis_escape: 'Statute (exemption)', monitor_url: 'Monitoring link', target_regime: 'Target regime', okved: 'OKVED', regions_candidate: 'Candidate regions', estimated_economy_per_year_rub: 'Yearly savings, ₽', psn_cost_spb_2026_per_vehicle_rub: 'SPb 2026 patent per vehicle, ₽', spn_income_limit_2026_rub: 'Income limit 2026, ₽', application_deadline_for_2026_07_01_start: 'Application deadline for 2026-07-01 start', application_form: 'Application form', taxi_permit_law: 'Taxi permit law', pending_client_answers: 'Awaiting client answers', recommended_combo: 'Recommended combination', package_files_count: 'Files in package', contract: 'Contract', may_act_available_after: 'May statement available after', requested_systems: 'Requested systems', check_items: 'Check items', yearly_fixed: 'Yearly fixed contribution', period_from: 'Period from', period_to: 'Period to', tax_amount_may_2026: 'Tax for May 2026', blocker_resolution: 'Blocker resolution'
         };
-        var rows = keys.filter(function(k){return ts[k] !== null && ts[k] !== '';}).map(function(k){
-          var label = TS_RU[k] || k.replace(/_/g,' ');
+        var TS_RU_LOC = __TS_RU_LOC_JSON__;
+        // Separate CONTENT (free-form text / lists) from PROPERTIES (short scalars).
+        function _tsIsContent(v){
+          if(Array.isArray(v)) return true;
+          if(typeof v === 'string'){
+            if(v.indexOf('\n') >= 0) return true;
+            if(v.length > 55) return true;
+            if((v.match(/,/g) || []).length >= 2) return true;
+          }
+          return false;
+        }
+        function _tsFmt(v){
+          if(Array.isArray(v)) return v.join(', ');
+          if(typeof v === 'number') return v.toLocaleString('ru-RU');
+          return String(v);
+        }
+        var propRows = [], contentRows = [];
+        keys.filter(function(k){return ts[k] !== null && ts[k] !== '';}).forEach(function(k){
+          var label = TS_RU_LOC[k] || TS_RU[k] || k.replace(/_/g,' ');
           var val = ts[k];
-          if(typeof val === 'number') val = val.toLocaleString('ru-RU');
-          return '<div class="tm-typespecific-key">' + esc(label) + ':</div>' +
-                 '<div class="tm-typespecific-val">' + esc(String(val)) + '</div>';
+          if(_tsIsContent(val)){
+            contentRows.push('<div class="tm-tscontent-item"><div class="tm-tscontent-k">' + esc(label) + '</div>' +
+                             '<div class="tm-tscontent-v">' + esc(_tsFmt(val)) + '</div></div>');
+          } else {
+            propRows.push('<div class="tm-typespecific-key">' + esc(label) + ':</div>' +
+                          '<div class="tm-typespecific-val">' + esc(_tsFmt(val)) + '</div>');
+          }
         });
-        if(rows.length){
-          elTsBody.innerHTML = '<div class="tm-typespecific-grid">' + rows.join('') + '</div>';
+        if(propRows.length){
+          elTsBody.innerHTML = '<div class="tm-typespecific-grid">' + propRows.join('') + '</div>';
           elTsSec.style.display = '';
         } else { elTsSec.style.display = 'none'; }
+        var elTcSec = document.getElementById('tm-tscontent-section');
+        var elTcBody = document.getElementById('tm-tscontent-body');
+        if(elTcSec && elTcBody){
+          if(contentRows.length){ elTcBody.innerHTML = contentRows.join(''); elTcSec.style.display = ''; }
+          else { elTcSec.style.display = 'none'; }
+        }
       } else { elTsSec.style.display = 'none'; }
     } catch(e) { elTsSec.style.display = 'none'; }
 
@@ -635,4 +739,16 @@ TRACK_MODAL_JS = (
     .replace('__RELATED_TASK__', t('Related task'))
     .replace('__ACTION__', t('Action'))
     .replace('__AUTO__', t('auto'))
+    .replace('__TS_RU_LOC_JSON__', _ts_ru_loc_json())
+    .replace('__DISCUSS_PRE__', _loc('Break down the task "', 'Разбери задачу «'))
+    .replace('__DISCUSS_MID__', _loc('" for client ', '» для клиента '))
+    .replace('__DISCUSS_POST__', _loc(
+        '. Open the client state/*.json (source of truth) and mental_model (narrative), '
+        'check related sources (Telegram/email/Finkoper) and reconcile the links. '
+        'First update the model with the new signal, then suggest a concrete next action. '
+        'Make any state change via mm_update (with my approval); send nothing outward without my OK.',
+        '. Открой state/*.json клиента (источник истины) и mental_model (нарратив), '
+        'проверь связанные источники (Telegram/почта/Finkoper) и сверь связи. '
+        'Сначала обнови модель новым сигналом, затем предложи конкретное следующее действие. '
+        'Правки state — через mm_update (с моим аппрувом); наружу ничего не отправляй без моего «ок».'))
 )

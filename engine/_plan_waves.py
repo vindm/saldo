@@ -16,7 +16,7 @@ derived from state, no writes.
 """
 import re
 
-from _strings import t
+from _strings import t, tp
 from _icons import icon
 
 _QUOTES = '«»"„“”\''
@@ -490,10 +490,17 @@ def _render_wave(members, esc, htitle):
     # no red client list in the wave header.
     anomaly_html = ''
 
-    batch_prompt = _attr(
-        'Process the wave "{op}": {clients}. For each SP open state/*.json (source of truth) '
-        'and the mental_model, check the linked sources, reconcile the links. Give a status for each '
-        'and an overall wave plan: what to run as a batch now, where we are waiting, where it is blocked.'.format(op=op, clients=clients))
+    batch_prompt = _attr(tp(
+        'Process the wave "{op}": {clients}. For each client open state/*.json (source of truth) and '
+        'mental_model, check the linked sources and reconcile the links. First update the model with the '
+        'new signals. Give a status per client and an overall wave plan: what to batch now, where we wait, '
+        'where it is blocked. Make state changes via mm_update (with my approval); draft any outward message '
+        'for my review — do not send.',
+        'Обработай волну «{op}»: {clients}. По каждому клиенту открой state/*.json (источник истины) и '
+        'mental_model, проверь связанные источники и сверь связи. Сначала обнови модель новыми сигналами. '
+        'Дай статус по каждому и общий план волны: что сделать пачкой сейчас, где ждём, где блок. Правки '
+        'state — через mm_update (с моим аппрувом); сообщения наружу — черновиком мне на проверку, не '
+        'отправляй.').format(op=op, clients=clients))
 
     actions = (
         '<span class="wave-acts">'

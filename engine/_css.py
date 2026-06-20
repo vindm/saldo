@@ -4,6 +4,8 @@ Extracted from generate.py as part of the decomposition refactor.
 Imported by generate.py, _client_dashboard_v2.py, _overview_v2.py.
 """
 
+from _strings import t
+
 DESIGN_TOKENS_CSS = (
     ":root{"
     "--bg-page:#FBFBFA;--bg-card:#FFFFFF;--bg-canvas:#F2F0EA;--border:#EAE8E2;"
@@ -467,4 +469,23 @@ PROMPT_MODAL_JS = (
     'document.addEventListener("keydown",function(e){'
     'if(e.key==="Escape")closeModal();});})();'
     '</script>'
+)
+
+# Localize the prompt-copy modal chrome through the locale layer (en = no-op).
+PROMPT_MODAL_HTML = (
+    PROMPT_MODAL_HTML
+    .replace('>Prompt ready</div>', '>' + t('Prompt ready') + '</div>')
+    .replace('>Copy again</button>', '>' + t('Copy again') + '</button>')
+    .replace('>Close</button>', '>' + t('Close') + '</button>')
+)
+PROMPT_MODAL_JS = (
+    PROMPT_MODAL_JS
+    .replace('"✓ Copied — paste into Cowork (Ctrl+V)"',
+             '"' + t('✓ Copied — paste into Cowork (Ctrl+V)') + '"')
+    .replace('"Failed — select and press Ctrl+C, then Ctrl+V in Cowork"',
+             '"' + t('Failed — select and press Ctrl+C, then Ctrl+V in Cowork') + '"')
+    .replace('"Select the text and press Ctrl+C, then Ctrl+V in Cowork"',
+             '"' + t('Select the text and press Ctrl+C, then Ctrl+V in Cowork') + '"')
+    .replace('"✓ Copied"', '"' + t('✓ Copied') + '"')
+    .replace('"Ctrl+C to copy"', '"' + t('Ctrl+C to copy') + '"')
 )

@@ -266,8 +266,21 @@ UI = {
         'password': 'пароль', 'show': 'показать', 'hide': 'скрыть',
         'login/password needed': 'нужны логин/пароль',
 
+        # ── _css.py — "prompt ready" copy-modal chrome ────────────────────
+        'Prompt ready': 'Промпт готов',
+        'Copy again': 'Скопировать снова',
+        '✓ Copied — paste into Cowork (Ctrl+V)': '✓ Скопировано — вставьте в Cowork (Ctrl+V)',
+        'Failed — select and press Ctrl+C, then Ctrl+V in Cowork':
+            'Не удалось — выделите и нажмите Ctrl+C, затем Ctrl+V в Cowork',
+        'Select the text and press Ctrl+C, then Ctrl+V in Cowork':
+            'Выделите текст и нажмите Ctrl+C, затем Ctrl+V в Cowork',
+        '✓ Copied': '✓ Скопировано',
+        'Ctrl+C to copy': 'Ctrl+C чтобы скопировать',
+
         # ── _track_modal.py — modal headings & buttons ────────────────────
         'Close': 'Закрыть',
+        'Properties': 'Свойства',
+        '📋 Particulars': '📋 Подробности',
         '📋 Context': '📋 Контекст',
         '🕒 Event history': '🕒 История событий',
         '🧭 System hypothesis': '🧭 Гипотеза системы',
@@ -588,6 +601,13 @@ def t(s):
     v = UI.get(LOCALE, UI['en']).get(s, s)
     v = _EMOJI_RE.sub('', v)
     return _re.sub(r'\s{2,}', ' ', v).strip()
+
+
+def tp(en, ru):
+    """Localized free text (prompts / full sentences): pick ru under the ru locale,
+    else en. Unlike t(), keeps the text verbatim (no emoji-stripping / whitespace
+    collapsing) — for clipboard prompts where the wording must stay intact."""
+    return ru if LOCALE == 'ru' else en
 
 
 # ── Localized date arrays the date code needs (mirrors the original engine's
