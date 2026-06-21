@@ -145,7 +145,7 @@ def add_history_event(client_id, track_id, event_text, source='', auto=False):
         if t.get('id') == track_id:
             t.setdefault('history', []).append({
                 'date': date.today().isoformat(),
-                'ts': datetime.now().astimezone().isoformat(timespec='minutes'),
+                'ts': datetime.now().astimezone().isoformat(timespec='seconds'),
                 'event': event_text,
                 'source': source,
                 'auto': auto,
@@ -170,7 +170,7 @@ def update_status(client_id, track_id, new_status, reason=''):
                 t['completed_at'] = date.today().isoformat()
             t.setdefault('history', []).append({
                 'date': date.today().isoformat(),
-                'ts': datetime.now().astimezone().isoformat(timespec='minutes'),
+                'ts': datetime.now().astimezone().isoformat(timespec='seconds'),
                 'event': 'Status: {} -> {}'.format(old, new_status) + (' ({})'.format(reason) if reason else ''),
                 'auto': False,
             })
