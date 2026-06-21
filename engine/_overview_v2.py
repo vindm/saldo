@@ -734,6 +734,23 @@ def _track_close_day(tr):
     return _track_latest_event_day(tr)
 
 
+def _track_close_sortkey(tr):
+    """Freshest-first ordering key for the 'recently closed' zone.
+
+    Primary: the closing event's timestamp/date. Tie-break by history array
+    position — history is append-only, so the just-closed track carries the
+    newest event (highest index) and sorts to the very top even when same-day
+    timestamps are stored date-only (no clock time). Falls back to completed_at."""
+    ft = tr.get('_full_track') or {}
+    hist = ft.get('history') or []
+    if hist:
+        best = max(range(len(hist)),
+                   key=lambda i: (str(hist[i].get('ts') or hist[i].get('date') or ''), i))
+        return (str(hist[best].get('ts') or hist[best].get('date') or ''), best)
+    ca = ft.get('completed_at')
+    return (str(ca) if ca else '', -1)
+
+
 def _track_last_event(tr):
     """Most recent history event on the track. Tie-break by array position
     (append-only history): same-day events -> later index = newer."""
@@ -814,12 +831,13 @@ def _track_event_row(tr):
     return event_row(cn, head, detail, when, _status_spec(tr), _build_modal_attrs(tr))
 
 
-def collect_recent_track_zones(mm, days=3):
+def collect_recent_track_zones(mm, days=3, closed_days=2):
     """Two morning event sections: (updated_html, closed_html) — same component as
     the decisions block. updated = open tracks touched within `days` (daemon-touched
     first, then newest); closed = tracks closed within `days`. 5 shown + show more."""
     from datetime import timedelta
     cut = (TODAY - timedelta(days=days - 1)) if TODAY else None
+    cut_closed = (TODAY - timedelta(days=closed_days - 1)) if TODAY else None
     updated, closed = [], []
     for tr in (mm.get('tracks') or []):
         if (tr.get('zone', 'client_work') or 'client_work') == 'system_internal':
@@ -827,9 +845,10 @@ def collect_recent_track_zones(mm, days=3):
         ft = tr.get('_full_track') or {}
         raw_status = (ft.get('status') or tr.get('status') or '')
         if raw_status in _CLOSED_FOR_ZONE:
-            d = _track_close_day(tr)
-            if d and cut and d >= cut:
-                closed.append((d.isoformat(), tr))
+            ev = _track_last_event(tr)
+            d = _event_day(ev) if ev else _track_close_day(tr)
+            if d and cut_closed and d >= cut_closed:
+                closed.append((_track_close_sortkey(tr), tr))
         elif raw_status == 'deferred':
             continue
         else:
@@ -844,7 +863,7 @@ def collect_recent_track_zones(mm, days=3):
     updated_html = render_event_section(tp('🔄 Recently updated', '🔄 Недавно обновили'),
                                         upd_rows[:10], count=len(upd_rows))
     closed_html = render_event_section(tp('✅ Recently closed', '✅ Недавно закрыли'),
-                                       cls_rows[:10], count=len(cls_rows))
+                                       cls_rows, count=len(cls_rows))
     return updated_html, closed_html
 
 
