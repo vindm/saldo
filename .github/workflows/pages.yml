@@ -34,12 +34,14 @@ jobs:
       - name: Render dashboards (synthetic example instance)
         run: |
           cp config/instance.example.yaml config/instance.yaml
-          python3 engine/generate.py
+          mkdir -p _site
+          # Render straight into _site. ABA_DASHBOARD_DIR pins the output dir so
+          # the build does not depend on the default DASHBOARD_DIR location
+          # (which now resolves to <data.dir>/dashboards).
+          ABA_DASHBOARD_DIR="$GITHUB_WORKSPACE/_site" python3 engine/generate.py
 
       - name: Assemble site
         run: |
-          mkdir -p _site
-          cp -r instances/example/dashboards/* _site/
           touch _site/.nojekyll
           cat > _site/index.html <<'HTML'
           <!doctype html>
