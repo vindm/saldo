@@ -36,7 +36,7 @@ Each atomic skill:
 |---|---|---|
 | "open task #N" | `read_task.md` | `task_id=N, read_attachments=true` |
 | "what's in the chat with Anastasia" | `read_chat.md` | `chat_id_or_name=Anastasia Chernyakova, message_count=20` |
-| "what tasks does Client A have" | `list_tasks.md` | `client_id=client_a, status=open` |
+| "what tasks does the client have" | `list_tasks.md` | `client_id=<client_id>, status=open` |
 | "check Finkoper" | `incremental_update.md` | — |
 | "rebuild Finkoper" | `morning_full_scan.md` | — |
 | "what's new overall" | `check_notifications.md` | `since=last_run` |
@@ -68,9 +68,9 @@ All skills are **read-only**. Per `security_rules.md §4` (updated 2026-05-16): 
 
 ## History
 
-- **2026-05-16** — refactored from the monolithic `finkoper.md` (203 lines, 3 modes) into a decomposed structure following the SRP principle. P4 refactor.
-- **2026-05-24** — P-fix "reduce turns" after two consecutive runs hit the limit of 100. Added the sections "Optimized pipeline v2" in `morning_full_scan.md`, "UI map" in `check_notifications.md`, "Known pitfalls" in `read_chat.md` and `read_task.md`. Target budget for the morning sweep — 20–35 turns (was 45–85+).
-- **2026-05-24 (evening)** — **canonical attachment-extraction pipeline** added to `read_task.md`. Solving the Client A task #26779260 showed that the built-in "Download all attachments" button in the wizard works via JS click → ZIP in Downloads → cp via the direct mount path → unzip → cp into `WORKDIR/_Inbox/` → Read as a multimodal image. Fully autonomous, ~8-12 turns for a task with 4 attachments. The memory `finkoper_blob_attachments_workflow.md` recorded that the workflow is solved. Safety rules §4 updated — no approval required. The `morning_full_scan.md` skill, Principle 2, was updated with a reference to the canonical pipeline.
+- **XXXX-05-16** — refactored from the monolithic `finkoper.md` (203 lines, 3 modes) into a decomposed structure following the SRP principle. P4 refactor.
+- **XXXX-05-24** — P-fix "reduce turns" after two consecutive runs hit the limit of 100. Added the sections "Optimized pipeline v2" in `morning_full_scan.md`, "UI map" in `check_notifications.md`, "Known pitfalls" in `read_chat.md` and `read_task.md`. Target budget for the morning sweep — 20–35 turns (was 45–85+).
+- **XXXX-05-24 (evening)** — **canonical attachment-extraction pipeline** added to `read_task.md`. Solving the the client task #26779260 showed that the built-in "Download all attachments" button in the wizard works via JS click → ZIP in Downloads → cp via the direct mount path → unzip → cp into `WORKDIR/` → Read as a multimodal image. Fully autonomous, ~8-12 turns for a task with 4 attachments. The recorded that the workflow is solved. Safety rules §4 updated — no approval required. The `morning_full_scan.md` skill, Principle 2, was updated with a reference to the canonical pipeline.
 
 ---
 

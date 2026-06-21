@@ -179,7 +179,7 @@ For system-wide changes (changes in the chat with Anastasia/Alyona, changes in t
 
 - If in step 2 there are more than 50 tasks after filters — process the 50 priority ones (My tasks → Assigned by me → Observer), mark the rest "not covered".
 - If the Finkoper UI format changed and some fields cannot be found — don't make them up, mark `null`, mention it in the summary.
-- Don't flag the UKEP (qualified e-signature) (see `memory/ukep_not_my_zone.md`).
+- Don't flag the UKEP (qualified e-signature).
 
 ---
 
@@ -206,12 +206,12 @@ One batch = one turn. Previously this was 3 turns (navigate, wait, read).
 
 ### Principle 2 — Read each new/changed task IN FULL (wizard + attachments)
 
-🔴 **Override rule** (see `memory/demon_must_fully_read_new_tasks.md`): for each new or changed task, the daemon MUST:
+🔴 **Override rule**: for each new or changed task, the daemon MUST:
 
 1. Click the `[3]` button in `.TaskRow_item__Xj2bN` — open the wizard modal.
 2. Extract the fields: Client / Responsible / Observers / full task text / End date / Calendar date / Priority.
 3. Download **all** attachments via the built-in "📥 Download all attachments" button (ZIP archive) — see the canonical pipeline in `read_task.md`, the "Canonical attachment-extraction pipeline" section.
-4. Unzip, copy into `WORKDIR/_Inbox/<client>_<task_id>/`, read each via the Read tool as a multimodal image.
+4. Unzip, copy into `WORKDIR/<client>_<task_id>/`, read each via the Read tool as a multimodal image.
 5. Write out the contents of each attachment into the daily report (at minimum: what kind of document it is, who the sender is, key figures/facts).
 6. Formulate an action plan for the operator (what to do, by what deadline, which postings/replies).
 7. Formulate a draft reply to the client in the task (if a write operation is required — leave it as a draft for approval).
@@ -221,13 +221,13 @@ One batch = one turn. Previously this was 3 turns (navigate, wait, read).
 **Budget for one new task with attachments:** ~8–12 turns per the canonical pipeline:
 - 1 turn (browser_batch): open the wizard + get the list of attachments + click "Download all attachments" + (optional) close the wizard
 - 1 turn (Glob): find `task-files.<task_id>*` in Downloads
-- 1 turn (bash): `cp` the zip via the direct path into outputs + `unzip` + `cp` into `WORKDIR/_Inbox/<client>_<task_id>/`
+- 1 turn (bash): `cp` the zip via the direct path into outputs + `unzip` + `cp` into `WORKDIR/<client>_<task_id>/`
 - N turns (Read): one per attachment, multimodal Claude sees the content
 - 1 turn (Edit): add the analysis to the daily report
 
 For 4 attachments of type JPG/PDF — ~7-8 turns per task in total. This is normal.
 
-⚠️ **Downloads mount pitfall**: `ls /sessions/.../mnt/Downloads/` returns an I/O error. This does NOT mean the mount is broken — it's a quirk of readdir on this mount. A direct `cp "path/file"` works. See `memory/downloads_mount_access_pattern.md`.
+⚠️ **Downloads mount pitfall**: `ls /sessions/.../mnt/Downloads/` returns an I/O error. This does NOT mean the mount is broken — it's a quirk of readdir on this mount. A direct `cp "path/file"` works. See.
 
 ### Principle 3 — The notification bell: go straight for the right bell
 
@@ -325,8 +325,8 @@ This is better than failing entirely without a report or with a "not opened" mar
 
 ## History
 
-- **2026-05-13** — first version in the monolithic `Scheduled/finkoper/SKILL.md`.
-- **2026-05-16** — split out as a composite skill during the P4 refactor.
+- **XXXX-05-13** — first version in the monolithic `Scheduled/finkoper/SKILL.md`.
+- **XXXX-05-16** — split out as a composite skill during the P4 refactor.
 
 ---
 

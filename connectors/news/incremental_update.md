@@ -79,7 +79,7 @@ Same as `morning_full_scan.md` step 8 (applying to state) — and MANDATORY the 
 
 ## History
 
-- **2026-05-16** — extracted as a composite during P4-news.
+- **XXXX-05-16** — extracted as a composite during P4-news.
 
 ---
 

@@ -86,7 +86,7 @@ Still open (re-audited 2026-06-20):
 - **Demo config points at a dead path** — `config/instance.yaml` (git-ignored, local) currently sets `data.dir` to a stale ephemeral session path (`/sessions/.../Saldo-data-clean`). The repo's own demo won't render until `data.dir` is repointed at `../instances/example/data` (as in `instance.example.yaml`). Re-copy the example config on a fresh checkout.
 - **`engine/_LINT.json` is tracked** — it's generated `state_lint.py` output and shouldn't be version-controlled; add it to `.gitignore` and `git rm --cached` it.
 - **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) are tracked but have uncommitted modifications — commit them so GitHub renders the README; otherwise the working tree stays dirty.
-- `policies/roadmap.md` (the internal operational roadmap, distinct from `docs/ROADMAP.md`) still carries the ported client list and collector notes — left as-is.
+- (resolved 2026-06-21) the internal `policies/roadmap.md` and the `policies/HANDOFF_*.md` migration artifacts carried ported client specifics — removed from the engine (practice specifics belong in the instance data, not the public engine).
 
 ## Relationship to the `accountant` repo
 

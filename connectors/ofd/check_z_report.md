@@ -2,25 +2,25 @@
 
 Check a client's cash operations via the Platforma OFD Z-Report for a given period. Download the xlsx, parse the "Cash revenue" column, return a decision "post into 1C or not".
 
-> **Source of truth for the algorithm:** `memory/ofd_z_report_workflow.md`. When the Platforma OFD UI changes, fix both places.
+> **Source of truth for the algorithm:**. When the Platforma OFD UI changes, fix both places.
 >
-> **After the state migration on 2026-05-25:** read the client's cash register and OFD details from `state/accounts.json:kassas[]` (has registration number/model/ofd_provider). If kassas contains a `pending_corrections` object — check it (e.g. Client A's 820K uncleared) and account for it when deciding whether to post.
+> **After the state migration on 2026-05-25:** read the client's cash register and OFD details from `state/accounts.json:kassas[]` (has registration number/model/ofd_provider). If kassas contains a `pending_corrections` object — check it (e.g. the client's 820K uncleared) and account for it when deciding whether to post.
 
 ## Parameters
 
 | Parameter | Type | Default |
 |---|---|---|
-| `client_id` | string | **required** (from `clients_data.json`, e.g. `client_h`) |
+| `client_id` | string | **required** (from `clients_data.json`, e.g. `<client_id>`) |
 | `period_start` | date | **required** (first day of the month) |
 | `period_end` | date | **required** (last day of the month) |
-| `output_folder` | string | `_Inbox/` (the operator will later move it to `SP <Surname>/`) |
+| `output_folder` | string | `<client doc folder>/` (the operator will later move it to `SP <Surname>/`) |
 | `wait_max_minutes` | int | `7` (the Z-Report takes "up to 5 minutes", we take a margin) |
 
 ## Precondition
 
-- Applicability checked via `README.md` (for Client A — yes; for Client A currently — no, no own cash register).
+- Applicability checked via `README.md` (for the client — yes; for the client currently — no, no own cash register).
 - Claude in Chrome is authorized in Platforma OFD (`lk.platformaofd.ru`).
-- The `_Inbox/` folder (or the specified `output_folder`) exists.
+- The `<client doc folder>/` folder (or the specified `output_folder`) exists.
 
 ## Algorithm
 
@@ -72,7 +72,7 @@ Check a client's cash operations via the Platforma OFD Z-Report for a given peri
 
 ### Step 7. Move and rename
 
-1. From `Downloads/`, move it to `output_folder` (default `_Inbox/`).
+1. From `Downloads/`, move it to `output_folder` (default `<client doc folder>/`).
 2. Rename per the template: `ZReport_<Surname>_<month-year>.xlsx`
    - `Surname` — the client's short name (from `clients_data.json[client_id].name_short`)
    - `month-year` — format `april-2026` (Russian month + year via a hyphen)
@@ -105,14 +105,14 @@ else:
 ```json
 {
   "status": "ok",
-  "client_id": "client_h",
+  "client_id": "<client_id>",
   "period": "2026-04-01..2026-04-30",
-  "file_path": "_Inbox/ZReport_Zubareva_april-2026.xlsx",
+  "file_path": "<client doc folder>/ZReport_Zubareva_april-2026.xlsx",
   "cash_total": 0,
   "sessions": [
     {
       "kkt_serial": "9286...01",
-      "kkt_name": "Aqsi 5 NIGHT VISION #1",
+      "kkt_name": "<vendor> 5 <vendor> #1",
       "session_id": 142,
       "session_open": "2026-04-01T10:00",
       "session_close": "2026-04-01T22:00",
@@ -122,8 +122,8 @@ else:
     ...
   ],
   "kkts_summary": [
-    {"kkt_name": "Aqsi 5 NIGHT VISION #1", "sessions_count": 28, "cash_total": 0, "card_total": 380500},
-    {"kkt_name": "Aqsi 5 NIGHT VISION #2", "sessions_count": 30, "cash_total": 0, "card_total": 415200}
+    {"kkt_name": "<vendor> 5 <vendor> #1", "sessions_count": 28, "cash_total": 0, "card_total": 380500},
+    {"kkt_name": "<vendor> 5 <vendor> #2", "sessions_count": 30, "cash_total": 0, "card_total": 415200}
   ],
   "output_decision": "not_needed",
   "next_action": "Do NOT post the OFD report into 1C...",
@@ -152,9 +152,9 @@ else:
 
 ## When invoked
 
-- Me in a session: "check cash for Client A for April" → `check_z_report(client_id=client_h, period_start=2026-04-01, period_end=2026-04-30)`.
+- Me in a session: "check cash for the client for April" → `check_z_report(client_id=<client_id>, period_start=2026-04-01, period_end=2026-04-30)`.
 - At month-end close for a client with a cash register (per the checklist `monthly_primary_docs.md`).
-- After Client A connects a cash register — they will be added to the applicable clients, and this skill will start being invoked for them too.
+- After the client connects a cash register — they will be added to the applicable clients, and this skill will start being invoked for them too.
 
 ## Relation to monthly_check and the updater
 
@@ -166,7 +166,7 @@ After downloading and parsing:
    - `last_file_received: <today>`
    - Add the structured field `cash_total: <number>`, `output_decision: <not_needed | needs_1c_posting>`.
 
-Also — the operator may explicitly record in `operator_decisions.md`: "Z-Report for April Client A downloaded, cash 0 ₽, not posting into 1C". Then the updater on T7 will close the line as "Not required ✓" with an entry in `decisions[]`.
+Also — the operator may explicitly record in `operator_decisions.md`: "Z-Report for April the client downloaded, cash 0 ₽, not posting into 1C". Then the updater on T7 will close the line as "Not required ✓" with an entry in `decisions[]`.
 
 ## Limitations
 
@@ -176,8 +176,8 @@ Also — the operator may explicitly record in `operator_decisions.md`: "Z-Repor
 
 ## History
 
-- **2026-05-10** — the algorithm was formulated in memory `ofd_z_report_workflow.md` after the first manual check.
-- **2026-05-16** — formalized as a reusable skill as part of P4-ofd_z_report.
+- **XXXX-05-10** — the algorithm was formulated in after the first manual check.
+- **XXXX-05-16** — formalized as a reusable skill as part of P4-ofd_z_report.
 
 ---
 

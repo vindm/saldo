@@ -89,7 +89,7 @@ Open `<DATA_DIR>/dashboards/dashboard_overview.html`. Then confirm parity agains
 - **Plan total** (number of tasks) matches; spot-check a few clients' cards.
 - Differences should be *only* the intended product improvements (plan = actions; open questions on the dashboard; the "Waiting" lane; operation/period grouping). Anything else is a migration bug — fix before cutover.
 
-A dry run of exactly this on the reference instance produced 16/16 clients, matching health (15 green / 1 red) and a matching plan total — see `docs/ARCHITECTURE.md` for the model.
+A dry run of exactly this on the reference instance produced all clients rendering, with matching health and a matching plan total — see `docs/ARCHITECTURE.md` for the model.
 
 ### Step 4 — wire up the collectors (incremental, after rendering is verified)
 

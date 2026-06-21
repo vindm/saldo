@@ -38,7 +38,7 @@
 - **Government bodies** — domains `@nalog.gov.ru`, `@sfr.gov.ru`, `@rosstat.gov.ru`, `@gks.ru`
 - **Client banks** — `@sberbank.ru`, `@tinkoff.ru`, `@tochka.com`, `@vtb.ru`
 - **Team** — Anastasia, Alyona (if email addresses exist)
-- **Partners** — Yandex.Taxi (for Client A), agents (for Client A)
+- **Partners** — Yandex.Taxi (for the client), agents (for the client)
 
 ## Format for calling one skill from another
 
@@ -64,7 +64,7 @@ All atomic skills are **read-only**. Per `security_rules.md §3` (updated 2026-0
 
 ## History
 
-- **2026-05-16** — refactored from the monolithic `Scheduled/email/SKILL.md` (70 lines) into a decomposed structure. P4-email.
+- **XXXX-05-16** — refactored from the monolithic `Scheduled/email/SKILL.md` (70 lines) into a decomposed structure. P4-email.
 
 ---
 

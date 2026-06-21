@@ -5,9 +5,9 @@ tg_sync.py — Telethon-based sync of Telegram chats with direct clients.
 
 Usage:
     python tg_sync.py --all                       # all clients from tg_state.json
-    python tg_sync.py --client client_a            # one client
-    python tg_sync.py --client client_a,client_b        # several
-    python tg_sync.py --full --client client_a     # force full rescan
+    python tg_sync.py --client <client_id>            # one client
+    python tg_sync.py --client <client_id>,<client_id>        # several
+    python tg_sync.py --full --client <client_id>     # force full rescan
     python tg_sync.py --lookback-months 6 --all   # custom history depth
 
 Reads:
@@ -49,11 +49,8 @@ MSK = timezone(timedelta(hours=3))
 # Maps client_id slugs to human-readable names. In the live deployment these are
 # the real sole-proprietor names; the entries below are anonymized examples.
 CLIENT_NAMES = {
-    "client_a": "SP Client A",
-    "client_b": "SP Client B",
-    "client_c": "SP Client C",
-    "client_d": "SP Client D",
-    "client_e": "SP Client E",
+    # Populate per practice, or (preferred) read display names from the roster
+    # clients_index.json at runtime. Empty here — code falls back to the slug.
 }
 
 # ============== Helpers ==============
@@ -339,12 +336,12 @@ def main():
         description="Telethon-based sync of TG chats with direct clients.",
         epilog="Examples:\n"
                "  python tg_sync.py --all\n"
-               "  python tg_sync.py --client client_a\n"
-               "  python tg_sync.py --full --client client_a,client_b --lookback-months 6",
+               "  python tg_sync.py --client <client_id>\n"
+               "  python tg_sync.py --full --client <client_id>,<client_id> --lookback-months 6",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("--all", action="store_true", help="All clients from tg_state.json")
-    p.add_argument("--client", help="Comma-separated list of slugs (client_a,client_b,...)")
+    p.add_argument("--client", help="Comma-separated list of slugs (<client_id>,<client_id>,...)")
     p.add_argument("--full", action="store_true", help="Force a full rescan")
     p.add_argument("--lookback-months", type=int, default=4, help="First-time depth (default 4 mo)")
     args = p.parse_args()

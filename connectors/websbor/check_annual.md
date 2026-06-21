@@ -2,7 +2,7 @@
 
 Annual check of each SP's obligation to file statistical reporting on the statistics portal website. Run once in January — after receiving a new INN/OGRNIP or on the operator's command.
 
-> **Source of truth:** `memory/annual_statotchet_check.md`. When the websbor.gks.ru UI changes — update both places.
+> **Source of truth:**. When the websbor.gks.ru UI changes — update both places.
 
 ## Parameters
 
@@ -47,8 +47,8 @@ Compose a table:
 
 | Client | INN | Status | Forms (if any) | Filing deadline |
 |---|---|---|---|---|
-| SP Client A | ... | no obligation | — | — |
-| SP Client A | ... | yes | MP(micro) | by 05.02 |
+| a client | ... | no obligation | — | — |
+| a client | ... | yes | MP(micro) | by 05.02 |
 | ... | | | | |
 
 ### Step 4. Save the result
@@ -72,12 +72,12 @@ Format: check date + table + list of clients that have an obligation.
 
 ## When to invoke
 
-- Every January (see `memory/annual_statotchet_check.md` — "check every client every January").
+- Every January.
 - After adding a new client — a one-off check.
 - On an explicit command from the operator.
 
 ## Related materials
 
-- `memory/annual_statotchet_check.md` — the annual check rule
+- — the annual check rule
 - `registries/stat_reporting_<year>.md` — the check result
 - `connectors/websbor/README.md` — domain overview (create when expanding)

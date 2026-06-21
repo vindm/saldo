@@ -92,6 +92,16 @@ open instances/example/data/dashboards/dashboard_overview.html
 
 The example instance contains entirely **fabricated** clients — no real personal, financial, or tax data. To run a real practice, point `data.dir` at a private directory **outside** this repo; it never enters version control.
 
+## Testing
+
+Run the end-to-end smoke test against the bundled synthetic example instance (no real data, CI-safe):
+
+```bash
+python3 engine/selftest.py
+```
+
+It byte-compiles every module, renders the example, checks pages + inter-page links, runs `state_lint` / `system_integrity_check` / `migrate status`, and verifies a deterministic re-render. Exit 0 = green.
+
 ## License
 
 [**Functional Source License (FSL-1.1-MIT)**](LICENSE). You may use, modify, and redistribute Saldo for any purpose **except a Competing Use** — you can't repackage it as a commercial product/service that substitutes for or competes with it. Using it to run your own bookkeeping practice (including paid client work) is explicitly permitted. Each released version automatically converts to the permissive MIT license two years after its release.

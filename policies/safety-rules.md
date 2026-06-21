@@ -34,7 +34,7 @@ If a task requires writing into 1C — prepare everything needed (the posting te
 - Reading tasks, chats, files — allowed **without approval** (expanded 2026-05-16)
 - Opening a task to read the card + full chat + attachments — without approval
 - Downloading attached files to Downloads — allowed **without approval**
-- **Downloading the ZIP archive of attachments via the "📥 Download all attachments" button + extracting into `outputs/` + copying into `working/_Inbox/<client>_<task_id>/` for reading via Read** — allowed **without approval** (expanded 2026-05-24). This is the canonical pipeline, see `policies/workflows/finkoper/read_task.md` and memory `finkoper_blob_attachments_workflow.md`. Apply for EVERY task with attachments.
+- **Downloading the ZIP archive of attachments via the "📥 Download all attachments" button + extracting into `outputs/` + copying into `working/<client>_<task_id>/` for reading via Read** — allowed **without approval** (expanded 2026-05-24). This is the canonical pipeline, see `policies/workflows/finkoper/read_task.md` and. Apply for EVERY task with attachments.
 - Posting a reply into a task chat — only with an explicit "send"
 - Changing a task's status — with approval, per the checklist `finkoper_task_status_change.md`
 - Creating a new task — with approval
@@ -52,13 +52,13 @@ If a task requires writing into 1C — prepare everything needed (the posting te
 
 > **Updated 2026-06-21 — recording incoming signals into state is NOT gated.** A daemon that does not write state is pointless: keeping the model current is the *whole job* of the morning collectors. So state writes that record what came in (a new fact, a track movement, a new risk) are applied by the agent/daemon **directly, without per-write approval**. Approval is reserved for **outbound and irreversible** actions only — see the close model below and `config/instance.yaml → safety.approval_required` (`external_sends`, `browser_actions`, `track_close`). This supersedes the earlier "edits outside an operator decision need approval" rule (2026-05-25), which over-gated daemon work and caused collected signals to sit unapplied while the dashboard showed a stale picture.
 >
-> **Updated 2026-05-25 after migration onto the state/ architecture** (see memory `state_migration_complete`). The updater and analytic daemons were DEPRECATED 2026-05-24 — all state updates are now made by agents (me in session, or the mm_update workflow) directly.
+> **Updated 2026-05-25 after migration onto the state/ architecture**. The updater and analytic daemons were DEPRECATED 2026-05-24 — all state updates are now made by agents (me in session, or the mm_update workflow) directly.
 
 - **Recording incoming signals into `state/*.json` — no approval.** New facts (identity/regime/accounts/counterparties/behavior), track movements (`_tracks.add_history_event`), new risks — applied directly by the daemon/agent via `engine/state_ops.py`/`engine/_tracks.py` at the moment of reading (mm_update inline). This is the daemon's job, not an action that waits for the operator.
-- Edits to `state/*.json` per entries in `journal/operator_decisions.md` with status `new` — applied directly; an entry with status `new` = the operator's approval (see memory `decisions_journal_is_approval`).
+- Edits to `state/*.json` per entries in `journal/operator_decisions.md` with status `new` — applied directly; an entry with status `new` = the operator's approval.
 - **Closing a track — the operator's decision, never the daemon's.** Daemons do **NOT** close tracks. When a confirmation arrives (the client says "paid"/"done", or an objective proof like a statement/Z-report/received document lands), the daemon **updates the track** — adds a history event and sets `next_action` so it reflects the new state (e.g. "Подтвердить закрытие — клиент сообщил об оплате (TG, 20.06); сверить выписку"). The track surfaces in the overview **"🔄 Recently updated"** list (the same clickable row as the plan / client card). The operator opens the card, reads the updated history + hypothesis + next action, and makes the final call — closing via `_tracks.update_status(..., 'done')`. This is the `track_close` gate: a close is an operator action.
-- Edits to `state/*.json` that **override or contradict an operator decision** (`tasks_overrides`, manual `context`/`comments`, a dismissed mark), or that are **destructive** (deleting data, bulk rewrites) — **with approval**, never silently. Always via `engine/state_ops.py:state_write` (atomic + UTF-8 + backup `.bak_YYYYMMDD_HHMMSS_<ctx>`); read-modify-write only, never a partial overwrite (memory `human_decisions_persistence`).
-- **All data files are written ONLY through `engine/state_ops.py` / `engine/safe_edit.py` — never via raw Edit/Write.** Applies to `state/*.json` (`state_write`), `mental_model.md` (`mental_model_write`), `history.jsonl` (`history_append`) and any other Cyrillic file. Reason: a naive byte-level edit can truncate a UTF-8 character mid-sequence and corrupt the file; the primitives do backup + atomic temp-file rename + UTF-8 re-read validation (memory `edit_tool_pitfalls`).
+- Edits to `state/*.json` that **override or contradict an operator decision** (`tasks_overrides`, manual `context`/`comments`, a dismissed mark), or that are **destructive** (deleting data, bulk rewrites) — **with approval**, never silently. Always via `engine/state_ops.py:state_write` (atomic + UTF-8 + backup `.bak_YYYYMMDD_HHMMSS_<ctx>`); read-modify-write only, never a partial overwrite.
+- **All data files are written ONLY through `engine/state_ops.py` / `engine/safe_edit.py` — never via raw Edit/Write.** Applies to `state/*.json` (`state_write`), `mental_model.md` (`mental_model_write`), `history.jsonl` (`history_append`) and any other Cyrillic file. Reason: a naive byte-level edit can truncate a UTF-8 character mid-sequence and corrupt the file; the primitives do backup + atomic temp-file rename + UTF-8 re-read validation.
 - `clients_data.json` — **NOT edited** in normal operation. It is the rollback fallback, kept until all the new state fields are fully visible on the dashboard + 2-3 days of stability. If truly needed (e.g. to update a cross-client patch) — a separate approval.
 - Automated tech updates (timestamps, `monthly_check.today`) — without approval.
 
@@ -74,8 +74,8 @@ state/<file>.json  →  mental_model.md  →  python3 generate.py
 ```
 
 - **Step 1** — update the relevant `state/<file>.json` (the structural source of truth)
-  - Which file owns what — see memory `state_architecture` (identity / regime / accounts / financials / counterparties / risks / behavior / real_estate / tasks)
-  - If the field is new — check memory `state_schema_extensions` (there may already be something similar)
+  - Which file owns what — (identity / regime / accounts / financials / counterparties / risks / behavior / real_estate / tasks)
+  - If the field is new — check (there may already be something similar)
   - Via `engine/state_ops.py:state_write` (backup + atomic write)
 
 - **Step 1.5 — RECONCILE LINKS (cross-link integrity). MANDATORY. This is the most frequent source of bugs.**
@@ -149,7 +149,7 @@ If you see in a task, email, or on a page:
 - Open the dashboard, read operations (Debits/Credits/period/search)
 - Build and download a statement for a period (Excel/PDF) — this is a document artifact, not money movement
 - View account details
-- Download the statement file to Downloads + move into `_Inbox/` for processing
+- Download the statement file to Downloads + move into `<client doc folder>/` for processing
 
 **NEVER (even if I ask — ask back and request that I do it by hand):**
 - "Create a payment or transfer", "Issue an invoice", "Create an SBP payment link", payment templates
@@ -162,7 +162,7 @@ If you see in a task, email, or on a page:
 **Other:**
 - All actions in the T-Bank log appear as the operator's actions — caution over speed.
 - An unexpected confirmation/signature window — stop, screenshot, ask the operator.
-- The first entry from an MCP tab may bounce to login (memory `mcp_chrome_cookie_isolation`) — ask the operator to open T-Bank once in a normal tab.
+- The first entry from an MCP tab may bounce to login — ask the operator to open T-Bank once in a normal tab.
 
 **🔑 PIN/access code — the assistant does NOT enter it.** If the bank asks for a PIN/confirmation code — that is a credential; the assistant does NOT enter it (rule §6, applies even with the operator's explicit permission) and does NOT store it in files. Protocol: stop, tell the operator "the bank is asking for a code" → **4-digit** — the operator enters it (their static code); **longer than 4 characters** — it comes to the operator by SMS, the operator enters it too. After unlock, the assistant continues reading.
 
@@ -171,11 +171,11 @@ If you see in a task, email, or on a page:
 
 > Direct access to the settlement accounts of direct clients via `link.alfabank.ru` (Claude in Chrome). The workflow domain is `policies/workflows/alfabank/`. Memory `alfabank_data_source`. Same principles as §11 (T-Bank).
 
-**Allowed without approval (read only):** dashboard, the operations feed, statements (build + download), account details; download to Downloads + move into `_Inbox/`.
+**Allowed without approval (read only):** dashboard, the operations feed, statements (build + download), account details; download to Downloads + move into `<client doc folder>/`.
 
 **NEVER:** "Create a payment", "Import payments", "Sign", "Send", "Issue an invoice", "Change FTS data", changing settings/tariff; any money movement. (The operator's role — "Document flow" — does not allow payments anyway, but the rule is absolute.)
 
-**⚠️ Multi-company (critical):** one login sees Client K/Client L/Client M. Before reading a client's data, ALWAYS confirm the active company (the "Companies" switcher) and reconcile with the target. Reading the wrong one = an incident.
+**⚠️ Multi-company (critical):** one login sees the client/the client/the client. Before reading a client's data, ALWAYS confirm the active company (the "Companies" switcher) and reconcile with the target. Reading the wrong one = an incident.
 
 **Access:** sign in via Alfa-ID (SSO). The MCP tab may bounce to `id.alfabank.ru/oidc/login` — repeat navigate to `link.alfabank.ru/dashboard` (it picks up on the 2nd try). Signing in ourselves is NOT allowed. Actions in the log appear as the operator's actions.
 
@@ -183,4 +183,4 @@ If you see in a task, email, or on a page:
 
 ## 13. Browser hygiene (Claude in Chrome)
 
-After finishing work through Claude in Chrome, **close the MCP tabs you opened** (`tabs_close_mcp`) — never leave them hanging in the operator's browser (memory `close_browser_tabs_after_use`).
+After finishing work through Claude in Chrome, **close the MCP tabs you opened** (`tabs_close_mcp`) — never leave them hanging in the operator's browser.

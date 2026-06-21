@@ -8,7 +8,7 @@ Incremental update of the Finkoper state since `last_run`. Appends to the daily 
 |---|---|---|
 | `since` | ISO datetime | `snapshot_meta.json:last_run` |
 | `client_filter` | client_id | `null` (if set — only this client) |
-| `trigger_description` | string | `null` (short description of the trigger for the marker in the report, e.g.: "a task about Client A appeared") |
+| `trigger_description` | string | `null` (short description of the trigger for the marker in the report, e.g.: "a task about the client appeared") |
 
 ## When it is called
 
@@ -140,7 +140,7 @@ If steps 2-5 showed 0 changes:
 
 ## History
 
-- **2026-05-16** — split out as a composite skill during the P4 refactor. Before that, the incremental mode was described as a parameter of the monolithic `finkoper.md`.
+- **XXXX-05-16** — split out as a composite skill during the P4 refactor. Before that, the incremental mode was described as a parameter of the monolithic `finkoper.md`.
 
 ---
 

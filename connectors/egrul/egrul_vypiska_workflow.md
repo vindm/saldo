@@ -4,9 +4,9 @@
 
 ## Summary
 
-egrul.nalog.ru — a search form by INN or OGRNIP.  
-The "GET STATEMENT" button downloads a PDF.  
-File name: `fl-{OGRNIP}-{YYYYMMDDHHMMSS}.pdf`  
+egrul.nalog.ru — a search form by INN or OGRNIP.
+The "GET STATEMENT" button downloads a PDF.
+File name: `fl-{OGRNIP}-{YYYYMMDDHHMMSS}.pdf`
 Read it via PDF Tools MCP using the direct path from Downloads.
 
 ---
@@ -79,7 +79,7 @@ grep "fl-.*YYYYMMDD"   // filter by today's date
 
 Path to the file: `C:\Users\user\Downloads\fl-{OGRNIP}-{timestamp}.pdf`
 
-> The Downloads mount via Linux bash does NOT work (I/O error on ls/find).  
+> The Downloads mount via Linux bash does NOT work (I/O error on ls/find).
 > Always use PDF Tools MCP list_pdfs or a direct read_pdf_content.
 
 ---

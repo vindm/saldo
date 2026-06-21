@@ -12,7 +12,7 @@
 
 ## In flight
 
-- [ ] **Reconcile `policies/INSTRUCTIONS.md` to the new layout** — replace remaining legacy references (`clients_data.json`, `registries/`, `_Inbox/`, OS-specific Downloads paths, the old daemon schedule) with the `instances/<id>/data/` structure.
+- [ ] **Reconcile `policies/INSTRUCTIONS.md` to the new layout** — replace remaining legacy references (`clients_data.json`, `registries/`, `<client doc folder>/`, OS-specific Downloads paths, the old daemon schedule) with the `instances/<id>/data/` structure.
 - [ ] **Monthly-close pipeline polish** — finish wiring the declared `config/pipelines/monthly_close.yaml` stages through the Periods view (see [`MONTHLY-PIPELINE-PROPOSAL.md`](MONTHLY-PIPELINE-PROPOSAL.md)).
 
 ## Next

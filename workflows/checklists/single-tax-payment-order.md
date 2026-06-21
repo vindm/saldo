@@ -7,21 +7,21 @@ Applies to preparing a payment order for USN / patent regime taxes / sole propri
 - [ ] Open the client's base in 1C:Fresh (per `1c_fresh_one_base_at_a_time.md` — close the previous base)
 - [ ] **USN advance payments and tax:** `Reports → USN reporting → Tax calculation` → select period (Q1, H1, 9M, year)
 - [ ] **Patent:** amount from the client card (`client-card.md`, "Patent" section, payment schedule)
-- [ ] **Sole proprietor's own insurance contributions:** fixed part for the year + 1% over 300,000 RUB (accounting for proportionality if the SP has been registered less than a year — see `memory/client_a_yandex_taxi_cash.md` and likewise for other newly registered SPs)
+- [ ] **Sole proprietor's own insurance contributions:** fixed part for the year + 1% over 300,000 RUB (accounting for proportionality if the SP has been registered less than a year — and likewise for other newly registered SPs)
 - [ ] **IMPORTANT:** if the calculated USN advance = 0, the payment order is **not prepared** (per `notification_zero_advance.md`). Mark the item in the JSON as `done` with status "advance = 0", do not create a payment order
 
 ## Stage 2. Checking the budget classification code (KBK) and deadline
 
 - [ ] **KBK (for 2026):**
   - USN income 6% (object "income") → `18210501011011000110`
-  - Patent (PSN) → `18210504020021000110` (for crediting to the municipal district budget; verify against the client card — for Client A 2026 it is specified this way)
+  - Patent (PSN) → `18210504020021000110` (for crediting to the municipal district budget; verify against the client card — for the client 2026 it is specified this way)
   - Sole proprietor's own insurance contributions → single tax payment (ENP) via the unified KBK `18201061201010000510` (for 2026 — verify current value at `nalog.gov.ru`)
 - [ ] **Payment deadline:**
   - USN Q1 2026 — 28.04.2026
   - USN H1 2026 — 28.07.2026
   - USN 9M 2026 — 28.10.2026
   - USN annual 2025 — 28.04.2026 (SP without employees)
-  - Patent 2026 (Client A) — 12,957 RUB by 02.04.2026 + 25,913 RUB by 28.12.2026
+  - Patent 2026 (the client) — 12,957 RUB by 02.04.2026 + 25,913 RUB by 28.12.2026
   - SP insurance contributions for 2026 — fixed part by 28.12.2026; 1% over 300k by 01.07 of the following year
   - If the deadline falls on a non-working day, it moves to the next business day
 - [ ] **Bookkeeper's internal deadline** = the statutory deadline minus 5 calendar days (shifting back off non-working days). Both the message to the operator and the client's signature must fit within this

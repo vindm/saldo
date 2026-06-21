@@ -8,7 +8,7 @@ Applies to Q1 / Q2 / Q3 / Q4. Most of the items are universal; the specific repo
 - [ ] For each client: open the card, see which reports we file
 - [ ] Create a "need to obtain from the client" list — add to `request_log.md`
 - [ ] Send clients requests for primary documents (per the `data-request-template.md` template)
-- [ ] Qualified digital signature (UKEP) — not my zone (see `memory/ukep_not_my_zone.md`). If a UKEP question surfaces during document reconciliation (expired / not suitable) — escalate to the operator
+- [ ] Qualified digital signature (UKEP) — not my zone. If a UKEP question surfaces during document reconciliation (expired / not suitable) — escalate to the operator
 
 ## Stage 2. Two weeks before — collecting primary documents
 

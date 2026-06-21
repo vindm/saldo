@@ -42,7 +42,7 @@ for each client c in the array:
 - Propose: `Delete the duplicates, keeping one record per title. Afterward — regenerate via generate.py.`
 
 **History:**
-- The rule was formulated 2026-05-14 after a case with Client F (a duplicate "Z-Report / OFD", recorded 05-13, removed manually 05-14).
+- The rule was formulated 2026-05-14 after a case with the client (a duplicate "Z-Report / OFD", recorded 05-13, removed manually 05-14).
 
 ---
 
@@ -86,7 +86,7 @@ Requires: the operator's approval to apply the review.
 ```
 
 **History:**
-- The rule was formulated 2026-05-16 after an incident with Client F: a manager's DM on 05-15 at 15:01 ("we're connecting the cash register + sync with the marketplace app") sat in the morning `finkoper_2026-05-16.md`, but the daemon did not link it on the first run to the active anomaly "⚠ Connect the online cash register + correction receipts" in `clients_data.json` (gap, action from 05-10). The link had to be added by hand after the fact.
+- The rule was formulated 2026-05-16 after an incident with the client: a manager's DM on 05-15 at 15:01 ("we're connecting the cash register + sync with the marketplace app") sat in the morning `finkoper_2026-05-16.md`, but the daemon did not link it on the first run to the active anomaly "⚠ Connect the online cash register + correction receipts" in `clients_data.json` (gap, action from 05-10). The link had to be added by hand after the fact.
 
 ---
 
@@ -139,7 +139,7 @@ for each overdue open task t in tasks.json:
 **Severity:** `medium` when there is a decision / `high` when there is none.
 
 **History:**
-- The rule was formulated 2026-05-16 after a Client F case on a task: `open + overdue 1 day`, but in a DM on 05-15 the manager set a new direction (waiting for the client to connect the cash register). Without R3 such a task lands in 🔴 ON FIRE and creates false urgency.
+- The rule was formulated 2026-05-16 after a the client case on a task: `open + overdue 1 day`, but in a DM on 05-15 the manager set a new direction (waiting for the client to connect the cash register). Without R3 such a task lands in 🔴 ON FIRE and creates false urgency.
 
 ---
 
@@ -214,7 +214,7 @@ for each candidate anomaly:
 **Anomaly format (the `anomaly_id` field):**
 
 ```markdown
-#### 🔴 [Banking] Client A — Bank for April 2026 — the 01-15 window has closed
+#### 🔴 [Banking] the client — Bank for April 2026 — the 01-15 window has closed
 **anomaly_id:** `client_a_bank_april_missing`
 **Description:** ...
 ...
@@ -248,7 +248,7 @@ for each candidate anomaly:
 4. Only after that — overwrite anomalies_<today>.md with the new version.
 ```
 
-**Why:** the operator's manual work is first-class data and must not be lost. See memory `human_decisions_persistence.md`.
+**Why:** the operator's manual work is first-class data and must not be lost. See.
 
 **Severity:** not an anomaly. This is a process rule for the daemon itself.
 
@@ -316,10 +316,10 @@ for each client c in clients_data.json:
 
 ## R8 — Age-based escalation of anomalies
 
-**ID:** R8  
-**Source:** `anomalies_*.md` — the "Nth day" counter from R2 + `dismissed_anomalies[]`  
-**When:** on every run of the `analytic` daemon, after R2 and R5  
-**Severity:** automatic raise by age, if the anomaly is "escalatable"  
+**ID:** R8
+**Source:** `anomalies_*.md` — the "Nth day" counter from R2 + `dismissed_anomalies[]`
+**When:** on every run of the `analytic` daemon, after R2 and R5
+**Severity:** automatic raise by age, if the anomaly is "escalatable"
 
 ### Goal
 
@@ -355,7 +355,7 @@ An anomaly is not escalated if at least one condition holds:
 | `*_fns_2026` | Predictable legislative changes |
 | `*_mail_daemon_resets_*` | A technical daemon artifact |
 
-**By keyword in the anomaly body:**  
+**By keyword in the anomaly body:**
 `Escalatable: no` — added by the daemon or the operator manually. When to apply:
 - The anomaly awaits an action by an external party (the team accountant, the FTS, the client) and pressure is inappropriate.
 - The anomaly is a chronic systemic constraint with no simple fix.
@@ -367,7 +367,7 @@ An anomaly is not escalated if at least one condition holds:
 
 ```
 🔴 **`client_a_period_open_awaiting_accountant` (🔴 high ↑R8 8th day)**
-- **Title:** Client A — the 1C period is not open: 8 days with no reply from the team accountant
+- **Title:** the client — the 1C period is not open: 8 days with no reply from the team accountant
 - **Description:** The period from 01.01.2025 is not open in 1C:Fresh. R8 automatically raised severity
   from 🟡 medium: the 8th day exceeded the 7-day threshold. Blocks closing April.
 - **Escalatable:** yes (by default)
@@ -377,8 +377,8 @@ An anomaly is not escalated if at least one condition holds:
 ### Example of an anomaly with the "no" marker
 
 ```
-🟡 **`client_c_recovery_25763922_aging` (⚪ low, Escalatable: no, 40th day)**
-- Long-term accounting restoration, deadline 31.12.2026. Escalation is inappropriate.
+🟡 **`<track_id>` (⚪ low, Escalatable: no, 40th day)**
+- A long-term low-priority track; escalation is inappropriate.
 ```
 
 ### History

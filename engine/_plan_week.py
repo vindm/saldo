@@ -49,7 +49,7 @@ _SEV = {'ev-red': 0, 'ev-amber': 1, 'ev-blue': 2, 'ev-grey': 3}
 
 
 def _short_name(client_name):
-    """SP Client A X.X. → Clie"""
+    """a client X.X. → Clie"""
     if not client_name:
         return ''
     s = client_name.replace('SP ', '')

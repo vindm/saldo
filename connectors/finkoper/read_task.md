@@ -2,7 +2,7 @@
 
 Read **one** Finkoper task in full. Returns structured data into the caller's context.
 
-> **After the state migration 2026-05-25** (see memory `state_migration_complete`): the result of reading a new task is written directly into the corresponding client's `state/tasks.json` (via `state_ops.state_write`), plus a summary into `mental_model.md` (the "History of key decisions" section). NOT via clients_data.json — that is now a fallback. When reconciling `finkoper_task_id`, look in `state/tasks.json:tasks[].linked.finkoper_task_id`. **After writing — the mandatory mm_update finale** (reconcile links across all of the client's `state/*.json` + `resolves_when` + lint + self-check); the reaction to a Finkoper task is as full as the reaction to a signal from the operator in chat.
+> **After the state migration 2026-05-25**: the result of reading a new task is written directly into the corresponding client's `state/tasks.json` (via `state_ops.state_write`), plus a summary into `mental_model.md` (the "History of key decisions" section). NOT via clients_data.json — that is now a fallback. When reconciling `finkoper_task_id`, look in `state/tasks.json:tasks[].linked.finkoper_task_id`. **After writing — the mandatory mm_update finale** (reconcile links across all of the client's `state/*.json` + `resolves_when` + lint + self-check); the reaction to a Finkoper task is as full as the reaction to a signal from the operator in chat.
 
 ## Parameters
 
@@ -57,9 +57,9 @@ Claude in Chrome is authorized in Finkoper (`app.finkoper.com`).
 {
   "id": "26135860",
   "url": "https://app.finkoper.com/tasks/26135860",
-  "title": "re Client A (cash payments, OFD, access)",
-  "client_id": "client_a",
-  "client": "SP Client A",
+  "title": "re the client (cash payments, OFD, access)",
+  "client_id": "<client_id>",
+  "client": "a client",
   "internal": false,
   "status": "closed",
   "created_at": "2026-04-30T...",
@@ -124,7 +124,7 @@ To close — `document.querySelector('.rc-dialog .rc-dialog-close').click()`.
 
 ### ❗ Addendum to the defaults: when called from `morning_full_scan`, always `read_attachments=true`
 
-This rule is fixed by `memory/demon_must_fully_read_new_tasks.md` (2026-05-24): for each new / changed task processed by the morning daemon, it is **mandatory** to call `read_task` with `read_attachments=true` and `read_full_chat=true`. The goal — the operator does not log into Finkoper at all.
+This rule is fixed by (2026-05-24): for each new / changed task processed by the morning daemon, it is **mandatory** to call `read_task` with `read_attachments=true` and `read_full_chat=true`. The goal — the operator does not log into Finkoper at all.
 
 Previously this file had an "alternative — data from the list" (when supposedly only `client_name/deadline_dmy/title/...` is enough). **This alternative is canceled.** The data from the list row is not enough: there's no full text, no attachment names, no full observer list.
 
@@ -177,7 +177,7 @@ Take the **last** one in the list (latest). The name is usually `task-files.<tas
 
 ### Step 5 — Copy the zip via the direct mount path into outputs
 
-⚠️ Important: `ls /sessions/.../mnt/Downloads/` returns an I/O error — don't panic. See memory `downloads_mount_access_pattern.md`. **A direct `cp` by the full path works**.
+⚠️ Important: `ls /sessions/.../mnt/Downloads/` returns an I/O error — don't panic. See. **A direct `cp` by the full path works**.
 
 ```bash
 mkdir -p /sessions/<id>/mnt/outputs/zip_work
@@ -191,19 +191,19 @@ cd /sessions/<id>/mnt/outputs/zip_work
 unzip -o task.zip
 ```
 
-### Step 7 — Copy into the mounted folder WORKDIR/_Inbox for the Read tool
+### Step 7 — Copy into the mounted folder WORKDIR for the Read tool
 
 The Read tool can read ONLY mounted paths (WORKDIR / Downloads / CLIENTS). `outputs/` is not visible to Read — you must cp into WORKDIR.
 
 ```bash
-mkdir -p /sessions/<id>/mnt/WORKDIR/_Inbox/<client>_<task_id>
-cp /sessions/<id>/mnt/outputs/zip_work/*.{jpg,jpeg,png,pdf} /sessions/<id>/mnt/WORKDIR/_Inbox/<client>_<task_id>/
+mkdir -p /sessions/<id>/mnt/WORKDIR/<client>_<task_id>
+cp /sessions/<id>/mnt/outputs/zip_work/*.{jpg,jpeg,png,pdf} /sessions/<id>/mnt/WORKDIR/<client>_<task_id>/
 ```
 
 ### Step 8 — Read each file via the Read tool (multimodal image)
 
 ```
-Read C:\Users\user\OneDrive\Desktop\WORKDIR\_Inbox\<client>_<task_id>\<filename>.jpg
+Read C:\Users\user\OneDrive\Desktop\WORKDIR\<client>_<task_id>\<filename>.jpg
 ```
 
 Read returns an image, Claude sees it as multimodal — it can read a receipt, a bank statement, a screen capture, a paper report. For PDF — it works too (the pages parameter for large files).
@@ -222,5 +222,5 @@ if (confirm) [...confirm.querySelectorAll('button')].find(b => b.innerText.trim(
 - ❌ Don't do `ls /sessions/.../mnt/Downloads/` — it gives an I/O error and throws you off. Go straight to Glob + direct path.
 - ❌ Don't try to pass base64 via JS-output chunks — MCP limits make this unrealistic (40+ turns for 4 files).
 - ❌ Don't try `mcp__Claude_in_Chrome__computer.screenshot` on Finkoper — it hits a `document_idle` timeout (a constant WebSocket).
-- ❌ Don't leave files in outputs/ — the Read tool doesn't see them, always cp into WORKDIR/_Inbox/.
+- ❌ Don't leave files in outputs/ — the Read tool doesn't see them, always cp into WORKDIR/.
 - ❌ Don't do `a[download].click()` for each file separately — Chrome rate-limit. Only the built-in "Download all attachments" button.

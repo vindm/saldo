@@ -37,7 +37,7 @@ Open the Finkoper notification bell ("Notification of new tasks") and return fre
       "type": "task_closed",
       "entity_id": "26135860",
       "entity_url": "https://app.finkoper.com/tasks/26135860",
-      "text_preview": "Task completed: SP Client A..."
+      "text_preview": "Task completed: a client..."
     }
   ],
   "count": 1,

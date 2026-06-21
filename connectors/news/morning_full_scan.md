@@ -14,7 +14,7 @@ Morning sweep of relevant topics + categorization + daily report.
 ### Step 1. Preparation
 
 - Read `connectors/news/README.md` → "Search topics" section.
-- Load clients via `engine/_loaders.load_clients_from_index()` — gives 15 enriched records with regime/okved/financials from state (after the Phase 2 migration, see memory `cd_migration_complete_phase2`).
+- Load clients via `engine/_loaders.load_clients_from_index()` — gives 15 enriched records with regime/okved/financials from state (after the Phase 2 migration).
 
 ### Step 2. Search across all topics
 
@@ -37,9 +37,9 @@ For each news item:
 ### Step 4. Assessing applicability to clients
 
 For each news item — note which of all clients it affects:
-- By regime (USN → all; patent regime → Client A, Client A; OSNO → none)
-- By OKVED (Client A 49.32 taxi, Client A 68.20 rental, Client A 49.41 freight, etc.)
-- By presence of a cash register (54-FZ news → Client A, Client A)
+- By regime (from `state/regime.json`: USN / patent / AUSN / OSNO)
+- By OKVED (the client 49.32 taxi, the client 68.20 rental, the client 49.41 freight, etc.)
+- By presence of a cash register (from `state/accounts.json:kassas[]`)
 - If the news applies to everyone — mark "all clients"
 
 ### Step 5. R6 — preserving manual notes
@@ -117,7 +117,7 @@ For system-wide topics (changes to the team's work process) — update `system_w
 
 ## History
 
-- **2026-05-16** — extracted as a composite during P4-news.
+- **XXXX-05-16** — extracted as a composite during P4-news.
 
 ---
 

@@ -769,7 +769,7 @@ def render_client_accounts(acc):
             )
         blocks.append('<div class="acc-block-title">' + _t('Foreign accounts') + ' (' + str(len(foreign)) + ')</div>' + ''.join(rows))
 
-    # 🧾 Registers and OFD (Aqsi 5 + RNM + pending_corrections if present)
+    # 🧾 Registers and OFD (<vendor> 5 + RNM + pending_corrections if present)
     if kassas:
         rows = []
         for k in kassas:
@@ -821,7 +821,7 @@ def render_client_accounts(acc):
             rows.append(row)
         blocks.append('<div class="acc-block-title">' + _t('Registers and OFD') + ' (' + str(len(kassas)) + ')</div>' + ''.join(rows))
 
-    # 💳 Acquiring channels (Client A 3 channels, Client B Prodamus+YooKassa)
+    # 💳 Acquiring channels (the client 3 channels, the client Prodamus+YooKassa)
     if acquiring:
         rows = []
         for a in acquiring:
@@ -893,7 +893,7 @@ def render_client_accounts(acc):
 
 def render_client_real_estate(re_data):
     """🏠 Real estate — from state/real_estate.json. P2 25.05.2026.
-    Only for clients with a populated real_estate.json (currently Client A).
+    Only for clients with a populated real_estate.json (currently the client).
     """
     if not re_data:
         return ''
@@ -1274,7 +1274,7 @@ def render_client_dashboard_v2(c, daemon_mail=None, daemon_anomalies=None):
         if _acc:
             accounts_html = render_client_accounts(_acc)
             quick_access_html = render_client_quick_access(_acc)
-        # P2 25.05.2026: real_estate (Client A only)
+        # P2 25.05.2026: real_estate (the client only)
         try:
             from state_ops import state_read, state_exists
             real_estate_html = ''

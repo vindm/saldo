@@ -88,7 +88,7 @@ On a repeat call with the same `since` (or after updating the heartbeat) — `li
 
 ## History
 
-- **2026-05-16** — extracted as a composite during P4-email.
+- **XXXX-05-16** — extracted as a composite during P4-email.
 
 ---
 

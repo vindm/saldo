@@ -28,7 +28,7 @@ FACT → state/*.json (edited by hand, source of truth)
 | `risks.json` | risks[] (severity green/yellow/red; **kind: risk/question/blocker** — only kind=risk is shown as cards, questions/blockers roll up into the footer since they duplicate tracks) + resolved_risks[] |
 | `behavior.json` | client style, communication channels, frequencies (e.g. bank statements) |
 | `tasks.json` | tracks: tasks, waiting items, open_question[] (resolves_when/no_auto_resolve) + `assist{}` on each track (hypothesis + personalized actions from mm_update) |
-| `real_estate.json` | real-estate objects + contracts + mortgage (optional; so far only Client E) |
+| `real_estate.json` | real-estate objects + contracts + mortgage (optional; so far only the client) |
 
 ### Other files in a client folder
 | File | Role |

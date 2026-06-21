@@ -21,14 +21,14 @@
 |---|---|---|
 | Tax Code changes / government decrees | nalog.gov.ru, consultant.ru, garant.ru | all clients |
 | Letters from the tax authority (FTS) / Ministry of Finance / social fund (SFR) | nalog.gov.ru, minfin.gov.ru | all |
-| USN (income 6%) | klerk.ru, buh.ru, glavbukh.ru | all all clients |
-| Patent (patent regime) | klerk.ru, buh.ru | Client A, Client A (when there is a patent) |
+| USN (income 6%) | klerk.ru, buh.ru, glavbukh.ru | clients on USN (regime.json) |
+| Patent (patent regime) | klerk.ru, buh.ru | clients on a patent (regime.json) |
 | SP insurance contributions | klerk.ru, buh.ru, nalog.gov.ru | all |
 | Single tax account (ENS) / notifications | klerk.ru, buh.ru | all |
-| 54-FZ / online cash registers / OFD | klerk.ru, buh.ru, kkt.nalog.gov.ru | Client A (2 registers), Client A (registering), Client A (potentially) |
-| Statistical reporting to the statistics portal | gks.ru, websbor.gks.ru | Client A (definitely), the rest (check annually) |
+| 54-FZ / online cash registers / OFD | klerk.ru, buh.ru, kkt.nalog.gov.ru | clients with a cash register (accounts.json:kassas[]) |
+| Statistical reporting to the statistics portal | gks.ru, websbor.gks.ru | clients required to report (check via websbor) |
 | EDI / electronic reporting | klerk.ru | all |
-| **Excluded:** UKEP / electronic signature (ECP) / qualified e-signature (KEP) | — | not the operator's area (see `memory/ukep_not_my_zone.md`) |
+| **Excluded:** UKEP / electronic signature (ECP) / qualified e-signature (KEP) | — | not the operator's area |
 
 ## When to invoke which
 
@@ -61,7 +61,7 @@ Same as `finkoper/` and `email/`:
 
 ## History
 
-- **2026-05-16** — refactored from the monolithic `Scheduled/news/SKILL.md` (58 lines) into a decomposition of 3 files + README. P4-news.
+- **XXXX-05-16** — refactored from the monolithic `Scheduled/news/SKILL.md` (58 lines) into a decomposition of 3 files + README. P4-news.
 
 ---
 

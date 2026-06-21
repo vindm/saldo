@@ -1,6 +1,6 @@
 # Skill: tg/sync — sync TG chats with direct clients
 
-**The main path is Telethon (Client API)**, via the `tg_sync.py` script. The Chrome-MCP scroll is kept as a fallback (bottom part of the document).
+**The main path is Telethon (the clientPI)**, via the `tg_sync.py` script. The Chrome-MCP scroll is kept as a fallback (bottom part of the document).
 
 ---
 
@@ -11,8 +11,8 @@
 ```powershell
 cd "C:\Users\user\OneDrive\Desktop\WORKDIR\policies\connectors\tg"
 python tg_sync.py --all                       # incremental for everyone
-python tg_sync.py --client client_a            # one client
-python tg_sync.py --full --client client_a,client_b # full rebuild
+python tg_sync.py --client <client_id>            # one client
+python tg_sync.py --full --client <client_id>,<client_id> # full rebuild
 python tg_sync.py --full --all --lookback-months 4  # the first full scan
 ```
 
@@ -99,15 +99,15 @@ The feed scroll container is `.MessageList` (class `Transition MessageList custo
 
 ### Download an attachment (statement/PDF) and read it
 The file widget — `.File.interactive`, the download icon — `i.icon-download`. Clicking it → the file lands in the **operator's Downloads** (mounted). Then the sandbox:
-- `ls`/`find` over Downloads gives an I/O error, but `stat`/`cp`/`cat` by the FULL path work (memory `downloads_mount_access_pattern`); the file name = as in the chat.
+- `ls`/`find` over Downloads gives an I/O error, but `stat`/`cp`/`cat` by the FULL path work; the file name = as in the chat.
 - `cp "<full path>" /tmp/x.pdf && pdftotext -layout /tmp/x.pdf /tmp/x.txt` → grep over the text.
 - Downloading a client's attachment for reading — no approval needed (this is reading data, not sending).
 
 ### Known peer_ids (for the direct `/a/#<peer_id>`)
-- Client A ([redacted]) → `[redacted]`  (add more as they get opened)
+- the client ([redacted]) → `[redacted]`  (add more as they get opened)
 
 ### Hygiene
-After working, close the MCP tab (`tabs_close_mcp`), memory `close_browser_tabs_after_use`.
+After working, close the MCP tab (`tabs_close_mcp`).
 
 ---
 

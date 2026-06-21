@@ -24,9 +24,9 @@
 2. **Specifics** — numbers, deadlines, examples; where appropriate, references to articles of the law.
 3. **Always a "what to do"** — end with clear steps.
 4. **Respectful and calm** — professional care, no pressure or alarmism.
-5. **Client's zone only** — do not surface internal matters (bookkeeping, the manager, pricing) (memory `letter_to_client_scope_principle`). A specific client's tone comes from their `state/behavior.json`.
+5. **Client's zone only** — do not surface internal matters (bookkeeping, the manager, pricing). A specific client's tone comes from their `state/behavior.json`.
 
 ## Before sending
 - Any client document is a **draft**. Sending it externally requires the operator's approval (Rule #3 / `safety-rules.md` §1, §3, §4).
 
-_Related: memory `brand_identity_and_tone`, `letter_to_client_scope_principle`. Full version — `Brand_guide.docx`._
+_Related:, `letter_to_client_scope_principle`. Full version — `Brand_guide.docx`._

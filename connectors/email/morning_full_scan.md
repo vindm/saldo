@@ -137,7 +137,7 @@ For emails from Anastasia/Alyona (team) — update `system_wide/mental_model.md`
 
 ## History
 
-- **2026-05-16** — extracted as a composite during the P4-email refactor.
+- **XXXX-05-16** — extracted as a composite during the P4-email refactor.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Pull new operations across **all** T-Bank clients since the previous run, append to the daily report, update state. Pipeline over the atomic `list_operations`. Ready to run on a schedule (morning run) and on the operator's "check T-Bank" trigger.
 
-> "One skill — several executors" architecture: in a session a trigger calls me, the daemon/schedule calls this same composite. See memory `sync_protocol`, `use_system_data_by_default`.
+> "One skill — several executors" architecture: in a session a trigger calls me, the daemon/schedule calls this same composite. See, `use_system_data_by_default`.
 
 ## Parameters
 
@@ -15,7 +15,7 @@ Pull new operations across **all** T-Bank clients since the previous run, append
 
 ### Step 1. List of T-Bank clients
 
-Take `clients` (default — all ✅ from `README.md`: client_d, client_e, client_f, client_g, + the clarified 5th).
+Take `clients` (default — all ✅ from `README.md`: <client_id>, <client_id>, <client_id>, <client_id>, + the clarified 5th).
 
 ### Step 2. For each client
 
@@ -31,7 +31,7 @@ For each `client_id`:
 ### Step 3. Diff and classification
 
 - New credits / debits relative to the previous snapshot.
-- Run through memory `typical-postings-bank-statements` (typical postings), `contractor_debt_not_our_zone` (a missed payment by a tenant/buyer is not flagged), `silence_check_payment_first` (client silence ≠ non-payment — first check the fact of payment here).
+- Run through (typical postings), `contractor_debt_not_our_zone` (a missed payment by a tenant/buyer is not flagged), `silence_check_payment_first` (client silence ≠ non-payment — first check the fact of payment here).
 
 ### Step 4. Record
 

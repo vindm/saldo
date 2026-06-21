@@ -1,16 +1,16 @@
 # Atomic skill: get_statement (Alfa)
 
-Generate and download a bank statement for a client's account in Alfa-Business for a period → `_Inbox/` → parse Dr/Cr turnover. Replaces waiting for the statement from the client for the direct contour.
+Generate and download a bank statement for a client's account in Alfa-Business for a period → `<client doc folder>/` → parse Dr/Cr turnover. Replaces waiting for the statement from the client for the direct contour.
 
 > Account requisites — `state/accounts.json:bank_accounts[]`. UI and applicability — the domain `README.md`.
 
 ## Parameters
 | Parameter | Type | Default |
 |---|---|---|
-| `client_id` | string | **required** (`client_a`/`client_b`/`client_c`) |
+| `client_id` | string | **required** (`<client_id>`/`<client_id>`/`<client_id>`) |
 | `period_start`, `period_end` | date | **required** |
 | `format` | enum | `excel` (parse) \| `pdf` (archive) |
-| `output_folder` | string | `_Inbox/<client>_<period>/` |
+| `output_folder` | string | `<client doc folder>/<client>_<period>/` |
 
 ## Precondition
 - Client is in the applicability table in `README.md`.
@@ -21,7 +21,7 @@ Generate and download a bank statement for a client's account in Alfa-Business f
 ### Step 0. ⚠️ Confirm/switch the company (CRITICAL)
 1. Read the active company name (header, top right).
 2. Reconcile with `client_id`. If it doesn't match — click the active company name → "Companies" panel → click the required client's card → wait ~3 sec → re-read the name. Matches — continue, otherwise stop.
-3. When finished, restore the active company to the one the operator had. **And close the MCP tabs I opened** (`tabs_close_mcp`) — memory `close_browser_tabs_after_use`.
+3. When finished, restore the active company to the one the operator had. **And close the MCP tabs I opened** (`tabs_close_mcp`).
 
 ### Step 1. Open the statement
 - Quick action **"Download statement"** or menu **"Statement"**.

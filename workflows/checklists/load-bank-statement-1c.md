@@ -18,7 +18,7 @@ Source:
 - Finkoper (client attached it to a task or chat) — see `finkoper/read_task.md` / `read_chat.md`
 - Downloaded manually by the operator (`Downloads/`)
 
-Storage: `_Inbox/<client>/statements/<bank>_<yyyymm>.<ext>` — move from Downloads via the "sort out the downloads" scenario (INSTRUCTIONS.md section 5).
+Storage: `<client doc folder>/<client>/statements/<bank>_<yyyymm>.<ext>` — move from Downloads via the "sort out the downloads" scenario (INSTRUCTIONS.md section 5).
 
 ## Stage 1. Identification
 
@@ -61,7 +61,7 @@ I prepare it step by step (accounting for the one-base rule — `1c_fresh_one_ba
    - `.xlsx` → "From spreadsheet" (specifying column mapping)
 6. Specify the organization: `<SP Surname>`.
 7. Specify the bank account: `<20-digit account number>` — **critical** if the client has several accounts.
-8. Path to the file: `<full path to the file in _Inbox or Downloads>`.
+8. Path to the file: `<full path to the file in <client doc folder> or Downloads>`.
 9. Click "Read" / "Load" (in newer releases — two steps).
 10. **After loading, do NOT post documents in bulk.** First hand them over for post-check.
 

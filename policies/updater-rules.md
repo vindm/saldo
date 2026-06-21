@@ -84,13 +84,13 @@ Everything else goes through the "🔧 Proposed patches" or "🟡 Needs a manual
 
 **What to propose:** for each pair (message, relevant item in `clients_data.json`) — a diff updating the `action` / `note` / `lifecycle_state` / `status` of the corresponding item (e.g. `monthly_check.sources[i]`) or an entry in the client's `special_notes`.
 
-**Example (the current Client F case, 05-15 at 15:01):**
+**Example (the current the client case, 05-15 at 15:01):**
 
 ```
 🔧 Proposed JSON patch
 
 File: engine/clients_data.json
-Path: client_f → monthly_check.sources[6] (title "⚠ Connect the online cash register + correction receipts")
+Path: <client_id> → monthly_check.sources[6] (title "⚠ Connect the online cash register + correction receipts")
 
 Changes:
   lifecycle_state: (none) → "awaiting_external"
@@ -277,7 +277,7 @@ A discrepancy between (1) and (2) is an R2 anomaly for the analytic daemon; the 
 - The updater **never** modifies Client_card.md, history.md, or the scripts (`generate.py`).
 - Changes to `clients_data.json` — only via applying a patch on the operator's approval (not the updater itself).
 - All proposed patches are logged in `updates_<YYYY-MM-DD>.md`, applied ones — on a separate line "Applied YYYY-MM-DD HH:MM per approval".
-- E-signatures and powers of attorney — the updater ignores them (the manager's zone, `memory/ukep_not_my_zone.md`).
+- E-signatures and powers of attorney — the updater ignores them (the manager's zone,).
 
 ---
 
@@ -289,4 +289,4 @@ At the end of a run the updater writes `journal/inbox/updater_heartbeat.txt` wit
 
 ## History of the rules
 
-- 2026-05-16 | initial version | formulated after the Client F incident: the manager's decision to connect the cash register (05-15 15:01 DM) was recorded in the morning finkoper report on 05-16, but did not reach `clients_data.json` → the dashboard kept holding the task in 🔴 ON FIRE. The cause — the absence of updater rules formalizing the carry-over of facts from .md reports into JSON.
+- 2026-05-16 | initial version | formulated after the the client incident: the manager's decision to connect the cash register (05-15 15:01 DM) was recorded in the morning finkoper report on 05-16, but did not reach `clients_data.json` → the dashboard kept holding the task in 🔴 ON FIRE. The cause — the absence of updater rules formalizing the carry-over of facts from .md reports into JSON.

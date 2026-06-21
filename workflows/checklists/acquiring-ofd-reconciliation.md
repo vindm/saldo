@@ -1,6 +1,6 @@
 # Acquiring reconciliation: cash register ↔ OFD Platform ↔ bank ↔ 1C
 
-Apply monthly at month-end for clients with an online cash register and acquiring. Current coverage — only Client A (2 cash registers, T-Bank acquiring, account [redacted]). As other clients acquire cash registers/acquiring — expand the coverage.
+Apply monthly at month-end for clients with an online cash register and acquiring. Current coverage — only the client (2 cash registers, T-Bank acquiring, account <redacted>). As other clients acquire cash registers/acquiring — expand the coverage.
 
 ## Why
 
@@ -59,14 +59,14 @@ Permissible delta = 0. If ≠ 0 — investigate.
 | OFD | Bank | Cash register | Scenario | What to do |
 |---|---|---|---|---|
 | ✅ yes | ✅ yes | ✅ yes | **OK** | Nothing |
-| ❌ no | ✅ yes | ✅ yes | **Cash register didn't transmit the FD** (Client A incident, 4400 on 07.05.2026) | Correction receipt "Receipt" for the same amount on the same register → notice to the FTS per the note to Art. 14.5 of the Code of Administrative Offenses |
+| ❌ no | ✅ yes | ✅ yes | **Cash register didn't transmit the FD** (the client incident, 4400 on 07.05.2026) | Correction receipt "Receipt" for the same amount on the same register → notice to the FTS per the note to Art. 14.5 of the Code of Administrative Offenses |
 | ✅ yes | ❌ no | ✅ yes | **Stuck acquirer transaction** | Request the transaction status from the acquirer bank; on reverse — a receipt-refund |
 | ✅ yes | ✅ yes | ❌ no | **Cash register worked offline / the record was lost locally but reached the OFD** | Cross-check against the cash-register logs; usually safe (the fiscal document exists) |
 | ❌ no | ❌ no | ✅ yes | **Test transaction / reversal** | Clarify with the client; doesn't go into the books |
 
 ### Step 4. Cross-check with 1C
 
-In 1C (Bank → Bank statements → period), the "Receipt by payment cards" / "Acquiring credit" amount for the month = the amount from the bank. If the statements are loaded into 1C via 1C.Direct (Client A — since 23.05.2026) — they usually match, but verify.
+In 1C (Bank → Bank statements → period), the "Receipt by payment cards" / "Acquiring credit" amount for the month = the amount from the bank. If the statements are loaded into 1C via 1C.Direct (the client — since 23.05.2026) — they usually match, but verify.
 
 ## Artifacts after reconciliation
 
@@ -87,13 +87,13 @@ After each monthly reconciliation, record:
 2. **In `_diary/operator_decisions.md`** — a short entry: "Acquiring reconciliation <client> for <month>: OK / discrepancy X → task Y".
 3. If it's an incident — open a separate track in `state/tasks.json` with type `investigation` (like `client_a_acquiring_diff_4400_07may` today).
 
-## Incident sample — Client A, 4,400 RUB, 07.05.2026
+## Incident sample — the client, 4,400 RUB, 07.05.2026
 
 See files:
-- `_Inbox/client_a_[redacted]/` — 4 photo attachments from the client (T-Bank slip, Z-report, receipt card from the cash register)
-- `SP Client A/Notice_FTS_non-application_of_cash_register_07.05.2026.docx` — a sample notice to the FTS per the note to Art. 14.5 of the Code of Administrative Offenses
-- `SP Client A/Notice_FTS_non-application_of_cash_register_07.05.2026_README.md` — instructions for the notice
-- OFD export: `[redacted]__2026__05__01__2026__05__25.xlsx` (in outputs, a copy in `SP Client A/` as a result of the reconciliation)
+- `<client doc folder>/client_a_<redacted>/` — 4 photo attachments from the client (T-Bank slip, Z-report, receipt card from the cash register)
+- `a client/Notice_FTS_non-application_of_cash_register_07.05.2026.docx` — a sample notice to the FTS per the note to Art. 14.5 of the Code of Administrative Offenses
+- `a client/Notice_FTS_non-application_of_cash_register_07.05.2026_README.md` — instructions for the notice
+- OFD export: `<redacted>__2026__05__01__2026__05__25.xlsx` (in outputs, a copy in `a client/` as a result of the reconciliation)
 
 Reconciliation figures for May 2026 (excerpt):
 - 07.05 per OFD (electronic): 1,800 + 2,800 = 4,600 RUB
@@ -104,10 +104,10 @@ Reconciliation figures for May 2026 (excerpt):
 
 | Trigger | Action |
 |---|---|
-| Month-end close for Client A | Reconciliation is mandatory; result — into `state/financials.json` + `_diary/operator_decisions.md` |
+| Month-end close for the client | Reconciliation is mandatory; result — into `state/financials.json` + `_diary/operator_decisions.md` |
 | New OFD report received from the client / supervisor | Run the reconciliation immediately |
 | Client complaint "I don't see the payment in the register/bank" | Targeted reconciliation by day/amount |
-| Another team client acquires a cash register + acquiring | Expand coverage, add to memory `monthly_acquiring_reconciliation` |
+| Another team client acquires a cash register + acquiring | Expand coverage, add to |
 
 ## Related documents
 

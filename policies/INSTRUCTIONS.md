@@ -9,10 +9,10 @@ This is the detailed working procedure for the assistant. The base rules, projec
 | Task type | What to open in addition |
 |---|---|
 | Anything about a specific client | `state/*.json` + `mental_model.md` (Client_card.md and history.md are DEPRECATED, do not read) |
-| Need a link/access to a client service (Finkoper card, bank portal, FTS portal, 1C:Fresh base, payment provider, OFD) | `state/accounts.json:quick_access[]` via `_loaders.get_access(client_id, service)` — take the link/login/access FROM THERE, do not search again (memory `quick_access_registry`). On the card = the "🔗 Quick access" section. |
+| Need a link/access to a client service (Finkoper card, bank portal, FTS portal, 1C:Fresh base, payment provider, OFD) | `state/accounts.json:quick_access[]` via `_loaders.get_access(client_id, service)` — take the link/login/access FROM THERE, do not search again. On the card = the "🔗 Quick access" section. |
 | Month's primary documents | the checklist `monthly_primary_docs.md`, the client's `state/financials.json` (periods / monthly check) |
-| Statement/operations on T-Bank (direct client) | the domain `policies/workflows/tbank/`, the client's `state/accounts.json`. For the direct circuit we pull the statement ourselves, do not wait for the client (memory `tbank_data_source`). |
-| Statement/operations on Alfa (direct client) | the domain `policies/workflows/alfabank/`, `state/accounts.json`. Direct circuit — we pull it ourselves (memory `alfabank_data_source`). Clients: Client K/Client L/Client M. |
+| Statement/operations on T-Bank (direct client) | the domain `policies/workflows/tbank/`, the client's `state/accounts.json`. For the direct circuit we pull the statement ourselves, do not wait for the client. |
+| Statement/operations on Alfa (direct client) | the domain `policies/workflows/alfabank/`, `state/accounts.json`. Direct circuit — we pull it ourselves. Clients: the client/the client/the client. |
 | Posting a specific document into 1C | the checklist `posting_primary_docs_into_1c.md`, the client's monthly_check.sources[*], the 1C:Fresh bases one at a time |
 | Quarterly reporting | the checklist `quarterly_reporting.md`, Consolidated_calendar_2026.xlsx, the archive of the previous reporting |
 | Forming a payment order for the single tax payment (USN/PSN/insurance) | the checklist `payment_order_for_single_tax.md`, the client's prep_done_2026, the current KBK codes |
@@ -22,11 +22,11 @@ This is the detailed working procedure for the assistant. The base rules, projec
 | A document or message for a client (note, letter, instruction, reply, reminder, invoice) | `policies/brand-and-tone.md` + the template `brand_kit/Letterhead_template.docx`; corporate style is mandatory, the tone for the client comes from `state/behavior.json` |
 | A new client | the checklist `new_client.md` (set up the client's `state/*.json`) |
 | Working with 1C / Finkoper / email | the template `instruction_for_chrome.md` |
-| Working with e-signatures / powers of attorney | not my zone — redirect to the manager (see `memory/ukep_not_my_zone.md`) |
+| Working with e-signatures / powers of attorney | not my zone — redirect to the manager |
 | Working with deadlines / the calendar | Consolidated_calendar_2026.xlsx |
 | Changing a task status in Finkoper | the checklist `finkoper_task_status_change.md` |
 | Prepare a reply to a task from the dashboard (the "💬 Prepare a reply" prompt) | The prompt is already copied from the dashboard. Read the client's `state/*.json` + `mental_model.md`, find the task in the Finkoper snapshot. Cross-check against the checklists. Propose a plan per the INSTRUCTIONS.md cycle (Step 4). |
-| Form a reminder (the "🔔 Remind" prompt) | the checklist `client_reminder.md`, the template `data_request.md`, request_log.md. Tone by the age of the request. |
+| Form a reminder (the "🔔 Remind" prompt) | the checklist `<client-note>.md`, the template `data_request.md`, request_log.md. Tone by the age of the request. |
 | Investigate an anomaly (the "🔍 Dig in" prompt) | the checklist `anomaly_investigation.md`, anomalies_<today>.md, the client's monthly_check.sources[], operator_decisions.md. |
 
 If a task does not fit any type — first classify it out loud and ask whether that is right. After closing it — propose adding a new type to this table and creating a checklist.
@@ -43,11 +43,11 @@ The algorithm is mandatory — **do not respond to the content of the task witho
 
 2. **Identify the client** (if applicable). By name, INN, task number, counterparty, link.
 
-3. **Open the client's state/ FIRST** (after the 2026-05-25 migration — see memory `state_migration_complete`):
+3. **Open the client's state/ FIRST** (after the 2026-05-25 migration —):
    - **direct clients:** `Direct/SP <Surname>/state/*.json` + `mental_model.md`
    - **team clients:** `SP <Surname>/state/*.json` + `mental_model.md`
    - State = **the source of truth** (8-9 files: tasks/identity/regime/accounts/financials/counterparties/risks/behavior + optional real_estate). Mental_model — a narrative slice (Plan + Links + History).
-   - Which state file to look at for which question — see memory `state_architecture`.
+   - Which state file to look at for which question —.
    - Not the card, not clients_data.json — first state + mental_model.
 
 4. **Cross-check with fresh manual decisions** — `journal/operator_decisions.md`, the last 5-10 entries on the client. This is first-class data that may contradict state. On a discrepancy we trust operator_decisions and update state.
@@ -81,7 +81,7 @@ The algorithm is mandatory — **do not respond to the content of the task witho
 | "we applied a decision, update" (after writing into `operator_decisions.md`) | directly via `mm_update/SKILL.md` | update `state/<file>.json` + `mental_model.md` + `history.jsonl` via `state_ops` |
 | "check the statistics reporting" / "update websbor" | `policies/workflows/websbor/check_annual.md` | `clients=all, year=current` |
 | "are there discrepancies in the registration details" | reconcile `state/identity.json` ↔ company registry (the `egrul` workflow) | by hand |
-| "check the cash at X for <month>" / "is an OFD report needed" | `policies/workflows/ofd/check_z_report.md` | `client_id=X, period_start, period_end, output_folder=_Inbox/` |
+| "check the cash at X for <month>" / "is an OFD report needed" | `policies/workflows/ofd/check_z_report.md` | `client_id=X, period_start, period_end, output_folder=<client doc folder>/` |
 | "need a T-Bank statement for X for <month>" | `policies/workflows/tbank/get_statement.md` | `client_id=X, period_start, period_end, format=excel` |
 | "what about operations / did a payment go through for X at T-Bank" | `policies/workflows/tbank/list_operations.md` | `client_id=X, direction, query` |
 | "check T-Bank" (no qualifier) | `policies/workflows/tbank/incremental_update.md` | `since=last_run` |
@@ -155,7 +155,7 @@ Each one — a separate approval.
 ## 3. The source of truth for client data (after the 2026-05-25 migration)
 
 The priority is as follows:
-1. **`state/*.json`** — the source of truth for everything structural (8-9 files: tasks/identity/regime/accounts/financials/counterparties/risks/behavior + optional real_estate). See memory `state_architecture` for details.
+1. **`state/*.json`** — the source of truth for everything structural (8-9 files: tasks/identity/regime/accounts/financials/counterparties/risks/behavior + optional real_estate). See for details.
 2. **`mental_model.md`** — a narrative slice (Plan + Links + History). Context for a human.
 3. **`history.jsonl`** — an append-only log of state changes.
 4. ~~`Client_card.md`~~ — DEPRECATED (the backup = snapshots, the view = the dashboard).
@@ -163,11 +163,6 @@ The priority is as follows:
 6. **`.docx` in the working folder** — historical, NOT edited; on a discrepancy we warn that the docx is stale.
 
 On detecting a discrepancy — flag it, do not pick a side silently. We trust state (unless we find that it itself is stale — then we update it per the operator's decision).
-
-See also memory:
-- [[state_migration_complete]] — what is migrated (15 directories)
-- [[state_schema_extensions]] — a catalog of 15 extensions
-- [[state_architecture]] — which client_id to look at where in practice
 
 ## 4. Dashboard regeneration
 
@@ -186,7 +181,7 @@ How:
 
 What NOT to do: do not edit the HTML directly. Only via state/mental_model and regeneration.
 
-**Track render:** `render_tracks_zone` reads `state/tasks.json` for ALL clients (the P1 fix applied 2026-05-25 — memory `tracks_render_state_disconnect` CLOSED; fallback to mental_model only if state is empty).
+**Track render:** `render_tracks_zone` reads `state/tasks.json` for ALL clients (the P1 fix applied 2026-05-25 CLOSED; fallback to mental_model only if state is empty).
 
 **Backup policy:**
 - A backup is created BEFORE each substantive edit of `clients_data.json`, `generate.py`, registries, and the daemons' daily reports. Name: `<original>.bak_YYYYMMDD_<context>` (e.g. `clients_data.json.bak_20260516_p0a_anomaly_id`). Backups of daily reports from a daemon rerun — `<name>.before_rerun_YYYYMMDD_HHMMSS.bak`.
@@ -270,18 +265,10 @@ What we never write in instructions for Chrome:
 
 If the situation requires these actions — stop, we discuss, I do it by hand.
 
-## 7. Existing materials — the state of the client cards
+## 7. Per-client state
 
-In detail (as of 2026-05-16):
-- Client F — 122 lines: cash registers/OFD, counterparties, accounts receivable, the "Watching" section.
-- Client E — 79 lines: a table of three real-estate objects (two under direct contracts with a retail company; one under an agency contract).
-
-Medium: Client B, Client D — there is a "Patent" block (Client B — an active 2026 one, Client D — expired 2025-06-30 + an application for a new one dated 2025-10-22).
-
-Minimal (need building out): Client A, Client C — missing OKTMO, OKATO, OKOPF, OKFS, email, phone. Email/phone are also dashes for Client B and Client D.
-
-Special cases:
-- Client C — a parallel 2021-2024 accounting-restoration track (see `memory/client_c_status.md`). The current 2025-2026 periods are run as usual.
-- Client E — three real-estate objects owned (sale-purchase contracts 2024-2025 + a marital agreement 2025-08-25 → separate ownership onto the SP). Leasing them out is the income profile; the full object data is in `state/real_estate.json` (the 9th logical state file).
-
-> ⚠️ Restoration note (2026-06-06): the tail of this section was truncated during an edit via the Edit tool (a Cyrillic-corruption bug, memory `edit_tool_pitfalls`). Client E's bullet was restored from `state/real_estate.json`. If the exact original wording is needed — restore the file version from the cloud version history (right-click the file → "Version history").
+Each client's situation — requisites, regime/patent, real-estate, recovery
+tracks, behaviour — lives in that client's `state/*.json` + narrative
+`mental_model.md`. This engine doc does NOT enumerate clients or their
+specifics (practice data belongs in the instance, not the public engine).
+Read the client's state first when working a task.

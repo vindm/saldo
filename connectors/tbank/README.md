@@ -2,8 +2,6 @@
 
 > Working with T-Bank Business (https://business.tbank.ru) via Claude in Chrome. Direct access to the bank accounts of **direct-contour** clients — we pull statements and operations ourselves, without waiting for the client to send a statement.
 >
-> Linked memory: `tbank_data_source.md`, `bank_statements_workflow.md`, `bank_balances_not_our_zone.md`, `direct_contour_model.md`, `mcp_chrome_cookie_isolation.md`, `read_action_no_handoff.md`.
->
 > **Who calls these skills:**
 > - Me in a session — on the operator's trigger ("T-Bank statement for X for <month>", "what about operations for X on T-Bank")
 > - Daemon / schedule — the composite `incremental_update` (pull new operations across all T-Bank clients)
@@ -23,7 +21,7 @@ A single operator login sees several SPs (company switcher at the top right). **
 
 | File | Type | What it does |
 |---|---|---|
-| [`get_statement.md`](get_statement.md) | atomic | Generate and download a statement for a period by client (Excel/PDF) → `_Inbox/` → parse Dr/Cr turnover |
+| [`get_statement.md`](get_statement.md) | atomic | Generate and download a statement for a period by client (Excel/PDF) → `<client doc folder>/` → parse Dr/Cr turnover |
 | [`list_operations.md`](list_operations.md) | atomic | Read operations from the screen (without generating a document): filter Debits/Credits/period/search |
 | [`incremental_update.md`](incremental_update.md) | composite | Across all T-Bank clients, pull new operations since last_run, append to the daily report, update state |
 
@@ -32,23 +30,19 @@ A single operator login sees several SPs (company switcher at the top right). **
 - `morning_full_scan.md` — full sweep of all T-Bank clients (if we switch to daily collection)
 - `compare_periods.md` — comparing turnover by month for anomalies
 
-## Applicability by client (direct contour)
+## Applicability — resolved from state (not hardcoded)
 
-| Client (`client_id`) | Access | Comment |
-|---|---|---|
-| **SP Client A** (`client_d`) | ✅ YES | Main account `40802...3472653`, BIC 044525974, card *4892, overnight `42109...077602`. **AUSN partner** — T-Bank calculates the tax itself and reports it to the FTS; the statement for us = reconciliation, not the basis of the KUDIR. |
-| **SP Client A** (`client_e`) | ✅ YES | Direct contour. |
-| **SP Client A** (`client_f`) | ✅ YES | Direct contour. |
-| **SP Client A** (`client_g`) | ✅ YES | Direct contour. |
-| **LLC "[redacted]"** | ⚠️ access exists | 5th company in the switcher (not an SP). Not from the direct contour — clarify status with the operator: client / a structure linked to acquiring. Until clarified, do not post the data. |
+Applies to direct-contour clients whose company is visible in the T-Bank switcher under the operator's login. Resolve at runtime:
+- which clients are direct-contour → roster `clients_index.json` (`group`);
+- each client's account(s) (incl. AUSN flag, several accounts, T-Kassa) → `state/accounts.json:bank_accounts[]`/`kassas[]`.
 
-**Principle:** the skill applies only to clients whose company is actually visible in the switcher under the operator's account. If the company is not there — stop, escalate to the operator (access not granted).
+**Principle:** the skill applies only to clients whose company is actually visible in the switcher. If the company is not there — stop, escalate to the operator (access not granted). A non-SP legal entity in the switcher that is not in the roster — do not post its data until the operator clarifies its status.
 
 ## UI map (verified live 2026-06-06)
 
-- **Company switcher** — top right, the active company name (e.g. "SP Client A"). Full list (verified 2026-06-06): SP Client A, SP Client A, SP Client A, SP Client A, LLC "[redacted]".
+- **Company switcher** — top right, the active company name (e.g. "a client"). Full list (verified 2026-06-06): a client, a client, a client, a client, LLC "[redacted]".
 - **Switching procedure (RELIABLE, verified 2026-06-06):** the header switcher is finicky (React doesn't always catch a synthetic click) — switch via `https://business.tbank.ru/sme/all-companies`: there, the companies are real button-cards (`button[automation-id=single-resource-large-card]`), click a card → reload ~3 sec → verify the name in the header. There is no stable per-company URL (switching is session-based), always all-companies + check. Don't spawn parallel tabs.
-- ⚠️ A client may have **several bank accounts** (Client A (`client_e`) has 5). For the statement, take `is_primary` from `accounts.json` or the explicitly specified account; on ambiguity — ask the operator.
+- ⚠️ A client may have **several bank accounts**. For the statement, take `is_primary` from `accounts.json` or the explicitly specified account; on ambiguity — ask the operator.
 - Operations (for reading from the screen): **Main** → "Operations" block, filters `All / Debits / Credits`, period "All time", search "Counterparty, purpose, account or amount".
 - Statement: **Actions → "Create statement"** or **Documents → Statements**. List: `/sme/documents/statements`. New-statement form: `/sme/documents/statements/order`.
 - "New statement" form: type `One-time` / `Template` → select `Bank account` → `Period` → `Statement formats` (PDF / Excel / 1C) → e-mail (opt.) → `Create`. **The statement can be downloaded from history rather than emailed** (`/sme/documents/statements`).
@@ -65,4 +59,4 @@ A single operator login sees several SPs (company switcher at the top right). **
 
 ## History
 
-- **2026-06-06** — domain created. The operator's direct access to T-Bank Business of direct clients appeared; formalized as a data source. UI verified live. Closed ❓ Q-client_d-tbank-account (account number + access presence).
+- **XXXX-06-06** — domain created. The operator's direct access to T-Bank Business of direct clients appeared; formalized as a data source. UI verified live. Closed ❓ Q-<client_id>-tbank-account (account number + access presence).

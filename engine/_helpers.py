@@ -107,9 +107,6 @@ _TECH_TERMS_RU = {
     'finkoper': 'Finkoper',
     'Tinkoff': 'T-Bank',
     'Accounting': 'accounting',
-    'Marketlead': 'Marketlead',
-    'Anna': 'Anna',
-    'Nazarova': 'Client A',
     'xls': 'spreadsheet',
     'PDF': 'document',
 }
@@ -342,7 +339,7 @@ def _load_all_tasks():
 
 def _client_folder_name(c):
     """Client folder name.
-    From name_short='SP Client A X.X.' take 'SP Client A'."""
+    From name_short='a client X.X.' take 'a client'."""
     parts = (c.get('name_short') or '').split()
     if len(parts) >= 2:
         return f"{parts[0]} {parts[1]}"

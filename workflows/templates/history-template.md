@@ -34,16 +34,16 @@ Per Step 7 item 1 of `INSTRUCTIONS.md` — after closing each task for a client,
 
 **Type:** action
 **Source:** client-card.md, "Specifics" section
-**What happened:** Placed 4 PDFs in the `new for sending/` folder: the partner act [redacted] for April 2026, two reconciliation acts dated 08.05.2026 (XXAR-1, XXAR-2), a consolidated reconciliation act for Q1 2026 on the aggregator's agent reports.
+**What happened:** Placed 4 PDFs in the `new for sending/` folder: the partner act <redacted> for April 2026, two reconciliation acts dated 08.05.2026 (XXAR-1, XXAR-2), a consolidated reconciliation act for Q1 2026 on the aggregator's agent reports.
 **What was done / what's planned:** Awaiting actual sending to the client.
-**Files:** `WORK/SP Client B/new for sending/`
+**Files:** `WORK/a client/new for sending/`
 ```
 
 ```
-## 2026-05-16 — Closing task #[redacted] OFD/cash (decision)
+## 2026-05-16 — Closing task #<redacted> OFD/cash (decision)
 
 **Type:** decision
 **Source:** `_diary/operator_decisions.md`, entry 2026-05-16 ~10:00; supervisor DM 15.05.2026 15:01
-**What happened:** On Finkoper task #[redacted] a decision was made: we wait for the client to connect a cash register, after which — a separate task to issue receipts for prior-period cash revenue (≈ [redacted] RUB).
+**What happened:** On Finkoper task #<redacted> a decision was made: we wait for the client to connect a cash register, after which — a separate task to issue receipts for prior-period cash revenue (≈ <redacted> RUB).
 **What was done / what's planned:** Task closed in Finkoper 16.05 07:30. The trigger to open the future task — the cash register appearing on kkt.nalog.gov.ru.
 ```

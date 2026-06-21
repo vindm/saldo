@@ -12,10 +12,10 @@ only do atomic writes with backup and validation.
 
 Usage pattern:
     from state_ops import state_read, state_write, history_append
-    tasks = state_read('client_a', 'tasks.json')
+    tasks = state_read('<client_id>', 'tasks.json')
     tasks['tasks'].append({...})
-    state_write('client_a', 'tasks.json', tasks, ctx='add_pp_task')
-    history_append('client_a', {
+    state_write('<client_id>', 'tasks.json', tasks, ctx='add_pp_task')
+    history_append('<client_id>', {
         'summary': 'Added a filing task for 30.06',
         'fields_changed': ['tasks[].add'],
         'source': 'manual'

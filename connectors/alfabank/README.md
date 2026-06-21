@@ -2,7 +2,6 @@
 
 > Working with Alfa-Business Online (https://link.alfabank.ru/dashboard) via Claude in Chrome. Direct access to the bank accounts of **direct-contour** clients — we pull bank statements/operations ourselves. Sister domain to `tbank/` (same pattern, different UI).
 >
-> Linked memory: `alfabank_data_source.md`, `bank_statements_workflow.md`, `bank_balances_not_our_zone.md`, `direct_contour_model.md`, `mcp_chrome_cookie_isolation.md`, `read_action_no_handoff.md`.
 
 ## ⚠️ Key point (same as tbank)
 
@@ -15,26 +14,24 @@ A single operator login sees several SPs. Before reading client data you MUST co
 
 ## ⚠️ Access and role
 
-- Login via **Alfa-ID (SSO)**. The MCP tab may be bounced to `id.alfabank.ru/oidc/login` (cookie isolation, memory `mcp_chrome_cookie_isolation`) — **repeat the navigate to `link.alfabank.ru/dashboard`** (the session is picked up on the 2nd attempt, `?alfaidAuth=true`). Do NOT log in yourself.
+- Login via **Alfa-ID (SSO)**. The MCP tab may be bounced to `id.alfabank.ru/oidc/login` (cookie isolation) — **repeat the navigate to `link.alfabank.ru/dashboard`** (the session is picked up on the 2nd attempt, `?alfaidAuth=true`). Do NOT log in yourself.
 - The operator's role is **"Document Flow"**: viewing, statements, documents. Payments/signing are NOT this role (and not allowed to us). A plus for read-only.
 
 ## Skills
 
 | File | Type | What it does |
 |---|---|---|
-| [`get_statement.md`](get_statement.md) | atomic | Statement for a period by client (Excel/PDF) → `_Inbox/` → parse Dr/Cr turnover |
+| [`get_statement.md`](get_statement.md) | atomic | Statement for a period by client (Excel/PDF) → `<client doc folder>/` → parse Dr/Cr turnover |
 | [`list_operations.md`](list_operations.md) | atomic | Operations from the screen (Operations Feed) without generating a document |
 | [`incremental_update.md`](incremental_update.md) | composite | New operations since last_run across all Alfa clients |
 
-## Applicability by client (verified live 2026-06-06)
+## Applicability — resolved from state (not hardcoded)
 
-| Client (`client_id`) | Alfa account | Comment |
-|---|---|---|
-| **SP Client A** (`client_a`) | `<account — from state/accounts.json>`, BIC <from state> (Nizhny Novgorod) | main bank account |
-| **SP Client A** (`client_b`) | `<account — from state/accounts.json>`, BIC ❓  | balance 0; clarify BIC from Requisites |
-| **SP Client A** (`client_c`) | `<account — from state/accounts.json>`, BIC ❓  | clarify BIC from Requisites |
+Applies to **direct-contour** clients that have an Alfa-Business account. Resolve at runtime, never hardcode:
+- which clients are direct-contour → roster `clients_index.json` (`group`);
+- each client's Alfa account number(s) + BIC → `state/accounts.json:bank_accounts[]` (use `closed_at=null`).
 
-⚠️ The switcher shows NOT only our 3 (verified 2026-06-06): besides Client A (`client_a`)/Client A (`client_b`)/Client A (`client_c`), other SPs on T-Bank/Tochka are also visible (Client A, Client A, Client A, Client A, Client A). Ours — only these 3 on Alfa (accounts ··XXXX/··XXXX and Client A). You MUST reconcile the active company by INN before reading (multi-company risk).
+⚠️ One login sees several SPs (including companies that are not the practice's). ALWAYS reconcile the active company by INN against the target `client_id` before reading — reading the wrong client is an incident.
 
 ## UI map (verified live 2026-06-06)
 
@@ -55,4 +52,4 @@ A single operator login sees several SPs. Before reading client data you MUST co
 
 ## History
 
-- **2026-06-06** — domain created. The operator's direct access to Alfa-Business (Document Flow role) for Client A (`client_a`)/Client A (`client_b`)/Client A (`client_c`); UI verified live; accounts entered into state.
+- **XXXX-06-06** — domain created. The operator's direct access to Alfa-Business (Document Flow role) for the direct-contour clients on Alfa; UI verified live; accounts entered into state.

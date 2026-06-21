@@ -582,7 +582,7 @@ def apply_regime_to_client(c, regime):
     if regime.get('accounting_system') is not None:
         c['accounting_system'] = regime['accounting_system']
 
-    # patents — keep the structure for future renderers (Client A, Client B, etc.)
+    # patents — keep the structure for future renderers (the client, the client, etc.)
     if patents:
         c['patents'] = patents
 
@@ -626,7 +626,7 @@ def apply_accounts_to_client(c, accounts):
 
     The primary bank_account → substitutes c['bank_name']/['bik']/['account'].
     If there are foreign_accounts → substitutes c['foreign_accounts'] for the existing renderer.
-    kassas — for the renderers that support them (Client A).
+    kassas — for the renderers that support them (the client).
     """
     if not accounts:
         return c
@@ -664,7 +664,7 @@ def apply_accounts_to_client(c, accounts):
     if bas:
         c['bank_accounts_all'] = bas
 
-    # Foreign accounts (Client A, Client B)
+    # Foreign accounts (the client, the client)
     fas = accounts.get('foreign_accounts') or []
     if fas:
         c['foreign_accounts'] = fas
@@ -794,7 +794,7 @@ def apply_tasks_overrides_to_client(c, tasks_data):
 
 
 def load_clients_from_index(index_path=None):
-    """Phase 2 of the CD migration (2026-05-25): loads 15 clients from clients_index.json
+    """Phase 2 of the CD migration (2026-05-25): loads clients from clients_index.json
     and enriches them with fields from state/*.json via all apply_*_to_client functions.
 
     Returns list[dict] equivalent to the old clients[] format from clients_data.json.

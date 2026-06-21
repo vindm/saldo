@@ -26,9 +26,9 @@ that describes how to update the knowledge state about a client based on a new s
 | **Narrative** (Work plan + Links + History of key decisions) | `state/.../mental_model.md` | Markdown | context for a human |
 | **Audit log of state changes** | `state/.../history.jsonl` (append-only JSON Lines) | JSONL | history |
 | **Audit log of the operator's decisions** | `journal/operator_decisions.md` (append-only) | Markdown | history |
-| **Backup for rollback** | `client_card.md` | MD | NOT edited in work. `clients_data.json` is **archived** (Phase 2 of the CD migration 2026-05-25, see [[cd_migration_complete_phase2]]) — it physically does not exist, you cannot write into it. |
+| **Backup for rollback** | `client_card.md` | MD | NOT edited in work. `clients_data.json` is **archived** (Phase 2 of the CD migration 2026-05-25) — it physically does not exist, you cannot write into it. |
 
-See memory `state_architecture` (what is in which file and which client_id to look at where) + `state_schema_extensions` (15 extensions).
+See (what is in which file and which client_id to look at where) + `state_schema_extensions` (15 extensions).
 
 ## Signal sources (6 channels)
 
@@ -167,9 +167,9 @@ data['tasks'].append(new_task)                    # change only what is needed
 state_ops.state_write(cid, 'tasks.json', data, ctx='...')  # write the WHOLE thing back
 ```
 
-**Never write a partial dict** (e.g. `{'tasks': [...]}` without the other keys) — this will erase `tasks_overrides` (where the operator's manual decisions are materialized), `schema_version` and other fields. The `_tracks` wrappers already follow read-modify-write internally. The operator's decisions (`tasks_overrides`, dismissed marks, manual `context`/`comments`) are first-class data, the daemon **does not touch** them (memory `human_decisions_persistence`). When in doubt — `🔧`, not an overwrite.
+**Never write a partial dict** (e.g. `{'tasks': [...]}` without the other keys) — this will erase `tasks_overrides` (where the operator's manual decisions are materialized), `schema_version` and other fields. The `_tracks` wrappers already follow read-modify-write internally. The operator's decisions (`tasks_overrides`, dismissed marks, manual `context`/`comments`) are first-class data, the daemon **does not touch** them. When in doubt — `🔧`, not an overwrite.
 
-For direct editing of `mental_model.md` outside the API (e.g. batch changes) — python heredoc, see memory `edit_tool_pitfalls.md`.
+For direct editing of `mental_model.md` outside the API (e.g. batch changes) — python heredoc.
 
 ## Audit log format
 
@@ -219,12 +219,12 @@ Each REAL change → append into `journal/operator_decisions.md`. **Do NOT log n
 
 7. **Compose the "Today summary" (with the FULL picture).** After applying, write a short Russian brief to `journal/brief_<YYYY-MM-DD>.md` — 2–4 lines synthesising the WHOLE dashboard the way a smart assistant would: what is overdue / due today, the nearest deadlines, what needs the operator's decision, what notably changed overnight, open questions and red risks worth flagging. The overview renders this file as «🧭 Сводка на сегодня»; if it is absent/stale the engine falls back to a deterministic summary (`engine/_brief.py:brief_lead_html`). Plain text + `**bold**` is fine. This is where the real "understanding" lives — the engine only formats.
 
-7. **Morning push to the operator (proactive).** After applying, if anything material changed overnight, post **one short Russian message** to the operator in the Cowork chat naming the updated tracks. Keep it to two lines, e.g.: «🌙 За ночь обновлено: Ким — клиент сообщил об оплате 30 000 ₽, нужно подтвердить закрытие. · Климова — пришёл ответ ФНС по доходу.» This makes daemon work *visible* — she should not have to come looking; the same tracks also appear in the overview «🔄 Последние обновлённые треки» zone (grouped by day) for the morning focus. If nothing material changed, send nothing (no-op runs stay silent, like the journal).
+7. **Morning push to the operator (proactive).** After applying, if anything material changed overnight, post **one short Russian message** to the operator in the Cowork chat naming the updated tracks. Keep it to two lines, e.g.: «🌙 За ночь обновлено: Aurora — клиент сообщил об оплате 30 000 ₽, нужно подтвердить закрытие. · Cobalt — пришёл ответ ФНС по доходу.» This makes daemon work *visible* — she should not have to come looking; the same tracks also appear in the overview «🔄 Последние обновлённые треки» zone (grouped by day) for the morning focus. If nothing material changed, send nothing (no-op runs stay silent, like the journal).
 
 ### Important interpretation rules
 
 - **One signal ≠ one track by default.** It may touch 0, 1, or several related tracks. The decision is based on understanding.
-- **Context matters more than keywords.** The message "Artyom, payment order is up for signing" from the operator is not about closing Client A's "1% over 148K" track, even if the word "payment order" matched.
+- **Context matters more than keywords.** The message "Artyom, payment order is up for signing" from the operator is not about closing the client's "1% over 148K" track, even if the word "payment order" matched.
 - **Closing — operator only (see §D).** The daemon NEVER closes. On any confirmation (a claim like "paid"/"done" OR objective proof) → `add_history_event` + refresh `next_action` to «Подтвердить закрытие …»; never call `update_status('done')`. "I'll send it" = a promise → add an event only. The operator closes from the track card.
 - **When uncertain — mark 🔧** in the track's context (for review with the operator), do not apply an automatic close.
 
@@ -271,10 +271,10 @@ Each REAL change → append into `journal/operator_decisions.md`. **Do NOT log n
 
 ## Related skills and files
 
-- `memory/mental_model_live_updates.md` — the live-model rule
-- `memory/decisions_journal_is_approval.md` — the status "new" = approval
-- `memory/human_decisions_persistence.md` — the operator's decisions = permanent state, the daemon does not overwrite them
-- `memory/tracks_writers_target_archived_json.md` — the historical reason for the fix to the `_tracks` writers (06-07)
+- — the live-model rule
+- — the status "new" = approval
+- — the operator's decisions = permanent state, the daemon does not overwrite them
+- — the historical reason for the fix to the `_tracks` writers (06-07)
 - `policies/security_rules.md` — what is allowed, what requires approval
 - `engine/state_ops.py` + `state/*.json` — the API and source of truth for structured data
 - `engine/_tracks.py` — wrappers upsert_track / update_status / add_history_event over state/tasks.json
@@ -286,7 +286,7 @@ Each REAL change → append into `journal/operator_decisions.md`. **Do NOT log n
 ## Agent checklist (cognitive protocol)
 
 > This section is **mandatory to execute** for any LLM agent (Claude in any session: interactive, scheduled-task, post-hook).
-> Recorded 2026-05-24 after the pilot on Client A/Client A/Client A/Client A/Client A.
+> Recorded 2026-05-24 after the initial pilot.
 > Updated 2026-05-25 — switched to the state/ architecture.
 
 ### When to invoke
@@ -404,16 +404,16 @@ Not line by line for each micro-event. One block in `journal/operator_decisions.
 
 ### Pilot (2026-05-24) — a model of the work
 
-See `journal/operator_decisions.md` entries from 2026-05-24 for clients Client A/Client A/Client A/Client A/Client A — this is a **reference example** of correct application of the protocol (at that time still via clients_data.json; after 05-25 — via state_ops/state/*.json, but the cognitive logic is the same).
+See `journal/operator_decisions.md` entries from 2026-05-24 — a **reference example** of correct application of the protocol (at that time still via clients_data.json; after 05-25 — via state_ops/state/*.json, but the cognitive logic is the same).
 
 ---
 
-_v1.4 (2026-06-07) — the `_tracks` writers (upsert_track/add_history_event/update_status) switched from the archived clients_data.json to state/tasks.json via state_ops (read-modify-write + merge in upsert); added the "Protecting the operator's decisions" block; the separate daemon `mm-update-3x-daily` is disabled (redundant — email/finkoper/news/tg apply mm_update inline during collection, tg — tg/sync.md §C). | _v1.0 (2026-05-23) — architecture simplification; v1.1 (2026-05-24) — formalization of the cognitive protocol after the pilot on 5 clients; v1.2 (2026-05-25) — synchronization of the document with the state/ architecture: all references to clients_data.json → tracks[] replaced with state/tasks.json via state_ops + the _tracks API; sections E/F/G/H point to state/risks.json, state/behavior.json, state/counterparties.json, state/financials.json respectively; v1.3 (2026-05-25) — added references to Phase 1 of the CD migration (memory cd_migration_complete_phase1): clarified that clients_data.json is now a duplicate of most fields, the live readers (_health/_aggregator/_overview_v2) switched to state._
+_v1.4 (2026-06-07) — the `_tracks` writers (upsert_track/add_history_event/update_status) switched from the archived clients_data.json to state/tasks.json via state_ops (read-modify-write + merge in upsert); added the "Protecting the operator's decisions" block; the separate daemon `mm-update-3x-daily` is disabled (redundant — email/finkoper/news/tg apply mm_update inline during collection, tg — tg/sync.md §C). | _v1.0 (2026-05-23) — architecture simplification; v1.1 (2026-05-24) — formalization of the cognitive protocol after the pilot; v1.2 (2026-05-25) — synchronization of the document with the state/ architecture: all references to clients_data.json → tracks[] replaced with state/tasks.json via state_ops + the _tracks API; sections E/F/G/H point to state/risks.json, state/behavior.json, state/counterparties.json, state/financials.json respectively; v1.3 (2026-05-25) — added references to Phase 1 of the CD migration: clarified that clients_data.json is now a duplicate of most fields, the live readers (_health/_aggregator/_overview_v2) switched to state._
 
 
 ## 🔴 MANDATORY FINALE OF ANY UPDATE — cross-link reconciliation + lint + self-check
 
-A fact is considered applied ONLY when all links are reconciled and the checks have passed. A partial update = a bug (CLAUDE.md RULE №2, `security_rules.md` §5b Step 1.5, memory `cross_link_integrity_mandatory`). The "apply a fact" pipeline:
+A fact is considered applied ONLY when all links are reconciled and the checks have passed. A partial update = a bug (CLAUDE.md RULE №2, `security_rules.md` §5b Step 1.5). The "apply a fact" pipeline:
 
 1. **Record the fact** into the right `state/<file>.json` via `state_ops.state_write` (atomic+backup). NEVER edit Cyrillic with Edit/Write — only bash+python or `engine/safe_edit.py` (CLAUDE.md RULE №1).
 2. **Cross-link sweep** across ALL of the client's files and related clients:

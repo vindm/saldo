@@ -114,7 +114,7 @@
 | Who | Contact | Role |
 |---|---|---|
 | <SP Name> | TG: <…>; email: <…>; phone: <…> | Client |
-| The operator | [redacted] | Bookkeeper (direct arrangement) |
+| The operator | <redacted> | Bookkeeper (direct arrangement) |
 
 ---
 
