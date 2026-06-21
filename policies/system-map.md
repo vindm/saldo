@@ -94,7 +94,7 @@ Columns: **Owner** (you edit by hand) · **Links** (check/close) · **Guard** (l
 | **Answer to an open question** | the relevant state file | **close the Q in tasks (status=completed + completed_at + history)** — `resolves_when` will highlight it if you forget | orphan_q |
 | **New track/task** | `tasks.json` | blocked_by on existing items; for a question — `resolves_when` or `no_auto_resolve` | dup_id, blocked_ref, no_resolves_when |
 | **Client leaving/status change** | identity/regime/behavior + tasks | risks; all active tracks | — |
-| **News/law** (system-wide) | by affected: regime/financials/risks/tasks | go through ALL 16 clients (`CLIENT_FOLDERS`) | lu_future |
+| **News/law** (system-wide) | by affected: regime/financials/risks/tasks | go through ALL clients (`CLIENT_FOLDERS`) | lu_future |
 
 ## 4. The "apply a fact" pipeline (mandatory)
 

@@ -17,7 +17,7 @@ Audience: someone who is **not** the original practice and wants to adopt the pr
    pip install pyyaml
    cp config/instance.example.yaml config/instance.yaml
    python3 engine/generate.py
-   open instances/example/dashboards/dashboard_overview.html
+   open instances/example/data/dashboards/dashboard_overview.html
    ```
    This renders the bundled **example instance** — entirely fabricated clients, no real data.
 3. **Connect the folder to Cowork.** In the Claude desktop app (Cowork), add `~/ai-bookkeeping-assistant` (and your private data dir) as a workspace folder. The assistant can now read the policies/workflows and run the generator for you.

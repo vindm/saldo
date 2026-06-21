@@ -130,7 +130,7 @@ def add_history_event(client_id, track_id, event_text, source='', auto=False):
     OFD:Z-report | 1C | joint:session. event_text — human-readable
     description (not tech abbreviations).
     """
-    from datetime import date
+    from datetime import date, datetime
     if not source or not str(source).strip():
         raise ValueError(
             "add_history_event: source is required (format channel:detail, "
@@ -145,6 +145,7 @@ def add_history_event(client_id, track_id, event_text, source='', auto=False):
         if t.get('id') == track_id:
             t.setdefault('history', []).append({
                 'date': date.today().isoformat(),
+                'ts': datetime.now().astimezone().isoformat(timespec='minutes'),
                 'event': event_text,
                 'source': source,
                 'auto': auto,
@@ -156,7 +157,7 @@ def add_history_event(client_id, track_id, event_text, source='', auto=False):
 def update_status(client_id, track_id, new_status, reason=''):
     """Change a track's status + add a history event (state/tasks.json).
     On close (done/completed/dismissed) sets completed_at."""
-    from datetime import date
+    from datetime import date, datetime
     try:
         data, tasks = _load_tasks(client_id)
     except KeyError:
@@ -169,6 +170,7 @@ def update_status(client_id, track_id, new_status, reason=''):
                 t['completed_at'] = date.today().isoformat()
             t.setdefault('history', []).append({
                 'date': date.today().isoformat(),
+                'ts': datetime.now().astimezone().isoformat(timespec='minutes'),
                 'event': 'Status: {} -> {}'.format(old, new_status) + (' ({})'.format(reason) if reason else ''),
                 'auto': False,
             })

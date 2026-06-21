@@ -131,7 +131,7 @@ using the read-modify-write scheme (since 2026-06-07, `_tracks` was moved to sta
 
 - **A message requires action** (a request, a question, a promise to send) → `_tracks.upsert_track(cid, {'id':..., 'type':'tg_action_required', 'status':'active', 'source':'tg:<username>:<date>', ...})`
 - **Movement on an existing track** (sent a statement/document, replied) → `_tracks.add_history_event(cid, tid, event, source='tg:<username>:<date>')`
-- **Closing** — only on an explicit confirmation ("paid", "done") → `_tracks.update_status(cid, tid, 'done', reason='...')`. "Will send / will do" = a promise → add_history_event, do NOT close.
+- **Closing — operator only** (see `connectors/mm_update/SKILL.md` §D). The daemon NEVER closes a track. On a confirmation (the client says "paid"/"done", or objective proof lands) → `_tracks.add_history_event(cid, tid, '<what happened>', source='tg:<username>:<date>')` and refresh `next_action` to «Подтвердить закрытие — …». The track surfaces in the overview «🔄 Последние обновлённые треки» zone; the operator closes it from the card. "Will send / will do" = a promise → `add_history_event` only.
 - **A new fact about the client** (new bank/detail/counterparty) → `state_ops.state_write` into the right `state/<file>.json`.
 - **Risk / red flag** → a record in `state/risks.json`.
 

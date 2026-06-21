@@ -1,6 +1,6 @@
 # Checklist: Telegram communication with direct clients
 
-Standard for working in the Telegram channel for the 9 direct clients. A supplement to safety rules section 3 (messengers).
+Standard for working in the Telegram channel for the direct clients. A supplement to safety rules section 3 (messengers).
 
 ## When we use Telegram at all
 

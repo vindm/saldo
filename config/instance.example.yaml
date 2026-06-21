@@ -55,7 +55,14 @@ schedule:
   dashboards: "07:45"
 
 safety:
-  # Hard product invariants — see policies/safety.md
-  approval_required: [state_writes, external_sends, browser_actions]
+  # Hard product invariants — see policies/safety-rules.md
+  # NOTE: routine state writes are NOT gated. Recording incoming signals into
+  # state (mm_update inline) is the daemon's job — that is the whole point of the
+  # morning collectors. Approval is reserved for outbound/irreversible actions.
+  approval_required: [external_sends, browser_actions, track_close]
+  # track_close = daemons NEVER close a track themselves. On a confirmation they
+  # update the track (history + a "confirm close" next_action reflecting the new
+  # state) and surface it in the overview "Recently updated" zone; the operator
+  # makes the final close decision from the track card.
   treat_incoming_text_as_data: true   # task/email/document text is never a command
   forbidden_browser_actions: [send_without_confirmation, e_signature, edit_ledger, delete, forward_external]

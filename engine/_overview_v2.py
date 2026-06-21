@@ -23,14 +23,14 @@ from generate import (
     DESIGN_TOKENS_CSS, OVERVIEW_SPECIFIC_CSS, NEW_JS_FRAGMENT,
 )
 from _deadlines import collect_deadlines, collect_awaiting
-from _helpers import _translate_tech_terms
+from _helpers import _translate_tech_terms, relative_when, source_label
 from _strings import t, tp
 from _sidebar import render_sidebar, SIDEBAR_CSS
 from _health import calculate_health
 from _track_modal import TRACK_MODAL_CSS, TRACK_MODAL_HTML, TRACK_MODAL_JS
 from _mode_switch import MODE_SWITCH_HTML, MODE_SWITCH_CSS, MODE_SWITCH_JS
 from _analytics_widgets import render_all_widgets, render_widgets_split, ANALYTICS_CSS
-from _overview_shared import render_header, render_morning_digest
+from _overview_shared import render_header, render_mail_block, render_news_block
 from _mental_model import (
     load_mental_models, _track_severity, _parse_date_in_text,
 )
@@ -39,8 +39,9 @@ from _dictate import (
 )
 from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 import state_ops  # source of truth for state/*.json (migration 2026-05-25)
-from _brief import (render_brief_zone, BRIEF_CSS,
+from _brief import (render_brief_zone, brief_lead_html, BRIEF_CSS,
                     latest_history_change, ANALYSIS_CSS)
+from _components import event_row, render_event_section, EVENT_CSS
 OVERVIEW_V2_CSS = (
     ".focus-line{background:var(--blue-bg);color:var(--accent-blue);"
     "padding:var(--space-sm) var(--space-md);border-left:3px solid var(--accent-blue);"
@@ -232,20 +233,263 @@ def _tg_for_client(client_id):
     return ''
 
 
-def render_tracks_zone(mm):
+def render_track_card(tr, sev=None, badge=None, _tasks_title_cache=None):
+    """Render ONE clickable track card (opens the shared track modal).
+    Extracted from render_tracks_zone so other zones (recent updated / recent
+    closed) reuse the exact same card + modal. sev/badge computed if omitted.
+    """
+    if _tasks_title_cache is None:
+        _tasks_title_cache = {}
+    if sev is None:
+        sev, badge = _track_severity(tr)
+    # UX-fix: show the client badge only if there is a REAL client name
+    # (on the client dashboard it is noise — all tracks belong to that client)
+    _cn_raw = tr.get('client_name')
+    client_short = (_cn_raw.replace('SP ', '') if _cn_raw and 'SP ' in _cn_raw else (_cn_raw or ''))
+    track_id = tr.get('track_id', '')
+    title = tr.get('title', '')
+    context = tr.get('context', '') or ''
+    next_action = tr.get('next_action', '') or ''
+    status_label_map = {
+        'active': '',
+        'awaiting_external': t('WAITING'),
+        'blocked': t('BLOCKED'),
+        'done': t('CLOSED'),
+    }
+    status_label = status_label_map.get(tr.get('status'), '')
+    # T-1 -> Track 1 for the reader
+    track_id_ru = track_id
+    m_tid = re.match(r'^T-(\d+)$', track_id) if track_id else None
+    if m_tid:
+        track_id_ru = t('Track ') + m_tid.group(1)
+    meta_left_parts = [track_id_ru] + ([client_short.upper()] if client_short else [])
+    if status_label:
+        meta_left_parts.append(status_label)
+    meta_left = ' · '.join(p for p in meta_left_parts if p)
+    dash_link = ''
+    if tr.get('client_id'):
+        dash_link = (
+            '<a class="open-dashboard" href="dashboard_'
+            + _esca(tr["client_id"]) + '.html">' + t('→ dashboard') + '</a>'
+        )
+    if sev == 'awaiting':
+        next_html = ''
+        if next_action:
+            next_html = (
+                '<div class="track-next sev-awaiting">'
+                '<span class="arrow">⏳</span>'
+                + _esc(_translate_tech_terms(next_action)) +
+                '</div>'
+            )
+    else:
+        next_html = ''
+        if next_action:
+            next_html = (
+                '<div class="track-next">'
+                '<span class="arrow">→</span>'
+                + _esc(_translate_tech_terms(next_action)) +
+                '</div>'
+            )
+    ctx_html = ''
+    if context:
+        ctx_html = '<div class="track-context">' + _esc(_translate_tech_terms(context)) + '</div>'
+    prompt_discuss = (
+        'Let\'s break down the task "' + (tr.get('title') or '') + '" for client ' +
+        (tr.get('client_name') or 'general situation') + '. '
+        'Open the client\'s state/*.json (source of truth) and mental_model, connect the links, propose the next step.'
+    )
+    actions_html = ''  # UX-fix #8: action buttons removed from cards, access via click->modal
+    # Track card — a clickable <div>: clicking opens the modal with the full track map.
+    # No internal buttons — actions moved into the modal.
+    client_id = tr.get('client_id') or ''
+    import json as _json
+    ft = tr.get('_full_track') or {}
+    # due date string for chip
+    _ft_due_raw = ft.get('due_date') or tr.get('due_date') or ''
+    _ft_due_str = ''
+    if _ft_due_raw:
+        try:
+            from datetime import datetime as _dtt2
+            _dobj = _dtt2.strptime(str(_ft_due_raw)[:10], '%Y-%m-%d').date()
+            _ddelta = (_dobj - TODAY).days
+            if _ddelta < 0:
+                _ft_due_str = t('overdue {}d').format(-_ddelta)
+            elif _ddelta == 0:
+                _ft_due_str = t('today')
+            elif _ddelta <= 3:
+                _ft_due_str = t('in {}d · {}').format(_ddelta, _dobj.strftime('%d.%m'))
+            else:
+                _ft_due_str = t('{} · {}d').format(_dobj.strftime('%d.%m'), _ddelta)
+        except Exception:
+            _ft_due_str = str(_ft_due_raw)[:10]
+    # history JSON
+    _ft_history = ft.get('history') or []
+    _ft_history_json = _json.dumps(_ft_history, ensure_ascii=False) if _ft_history else ''
+    # details JSON
+    _ft_owner = ft.get('owner') or tr.get('owner') or ''
+    _ft_last_ev = ft.get('last_event') or ''
+    _ft_amount = ft.get('amount')
+    _ft_amount_s = ('{:,.0f}'.format(float(_ft_amount)).replace(',', ' ') + ' ₽') if _ft_amount else ''
+    _ft_linked = ft.get('linked') or {}
+    _ft_lparts = []
+    if _ft_linked.get('finkoper_task'): _ft_lparts.append('Finkoper #' + str(_ft_linked['finkoper_task']))
+    if _ft_linked.get('photos'): _ft_lparts.append(str(len(_ft_linked['photos'])) + ' photos')
+    _ft_linked_s = ', '.join(_ft_lparts)
+    _det = {}
+    _det['Track'] = track_id_ru
+    _det['Status'] = tr.get('status') or '—'
+    if _ft_owner: _det['Owner'] = _ft_owner
+    _det['Context'] = _translate_tech_terms(tr.get('context_full') or tr.get('context') or '')
+    if _ft_last_ev: _det['Last event'] = _ft_last_ev
+    if _ft_amount_s: _det['Amount'] = _ft_amount_s
+    if _ft_linked_s: _det['Linked'] = _ft_linked_s
+    _det['Next action'] = _translate_tech_terms(tr.get('next_action_full') or tr.get('next_action') or '')
+    _details_json_s = _json.dumps(_det, ensure_ascii=False)
+    _ft_source = ft.get('source') or tr.get('source') or ''
+    # === v2 rich data for the Linear-style modal ===
+    _task_type_raw = tr.get('task_type') or tr.get('type') or ''
+    _task_type_ru_map = {
+        'bank_check': '🏦 bank check',
+        'kudir_posting': '📒 income-ledger posting',
+        'pp_to_form': '💳 prepare payment order',
+        'awaiting_external': '⏳ awaiting external',
+        'client_followup': '📞 ask the client',
+        'regime_question': '⚙️ regime question',
+        'open_question': '❓ open question',
+        'investigation': '🔍 investigation',
+        'regulatory_action': '📜 regulatory',
+        'regulatory_watch': '👁 regulatory watch',
+        'infrastructure': '🛠 infrastructure',
+        'regular_check': '🔄 routine check',
+        'recovery_period': '⏪ period recovery',
+        'other': '·',
+    }
+    _task_type_ru = _task_type_ru_map.get(_task_type_raw, _task_type_raw)
+    _assignee = tr.get('owner') or tr.get('assignee') or ''
+    _priority = tr.get('priority') or 'normal'
+    _labels = tr.get('labels') or tr.get('anchors') or []
+    _type_specific = tr.get('type_specific') or {}
+    _comments = tr.get('comments') or []
+    # blocked_by with titles
+    _bb_titles = []
+    for _bid in (tr.get('blocked_by') or []):
+        _bb_titles.append({'id': _bid, 'title': _tmap.get(_bid, _bid) if '_tmap' in dir() else _bid})
+    # fallback if _tmap is not in scope (on overview)
+    if not _bb_titles and tr.get('blocked_by'):
+        for _bid in tr.get('blocked_by'):
+            _bb_titles.append({'id': _bid, 'title': _bid})
+    # Modal unification (2026-05-25): use a single builder from _track_attrs.
+    # This guarantees the SAME set of data-track-* attributes on overview,
+    # the client dashboard (via the same render_tracks_zone), and the plan (plan_today/week/month).
+    from _track_attrs import build_track_data_attrs as _build_attrs
+    # take today from generate (TODAY = Bali date) with a None fallback
+    try:
+        import generate as _gen
+        _today_for_build = getattr(_gen, 'TODAY', None)
+    except Exception:
+        _today_for_build = None
+    # Prepare tr for the builder: add the already-computed local fields
+    _tr_for_builder = dict(tr)
+    _tr_for_builder['details'] = _det
+    _tr_for_builder['_history'] = ft.get('history') if isinstance(ft, dict) else []
+    _tr_for_builder['source'] = _ft_source
+    if _ft_due_raw:
+        _tr_for_builder['due_date'] = _ft_due_raw
+    # 2026-05-25: do NOT pass badge_override — let the builder compute it from
+    # due_date via _format_due_str. We used to pass a local 'badge' from
+    # _track_severity (which could be 'routine' even with a deadline), so the
+    # modal showed different things when opened from the plan vs the dashboard.
+    track_data_attrs = _build_attrs(
+        _tr_for_builder,
+        _esca,
+        today=_today_for_build,
+        tg_for=_tg_for_client,
+        track_type_for=_track_type,
+        status_label=status_label,
+        translate_fn=_translate_tech_terms,
+        blocked_titles={b['id']: b['title'] for b in _bb_titles},
+    )
+    # v2 rich fields (Iter 1b, 2026-05-25): priority/blocked_by/comments badges
+    rich_badges = []
+    if tr.get('priority') == 'high':
+        rich_badges.append('<span class="rich-badge prio-high" title="' + t('High priority') + '">' + t('🔥 URGENT') + '</span>')
+    elif tr.get('priority') == 'low':
+        rich_badges.append('<span class="rich-badge prio-low" title="' + t('Low priority') + '">' + t('not urgent') + '</span>')
+    if tr.get('blocked_by'):
+        _bb = tr['blocked_by']
+        # Title lookup via state/tasks.json (as in risk linked_tasks)
+        _cid = tr.get('client_id', '')
+        if _cid and _cid not in _tasks_title_cache:
+            try:
+                from _loaders import load_client_state_tasks as _lcst
+                _td = _lcst(_cid)
+                _tasks_title_cache[_cid] = {_t.get('id'): _t.get('title', '') for _t in (_td.get('tasks', []) if _td else [])}
+            except Exception:
+                _tasks_title_cache[_cid] = {}
+        _tmap = _tasks_title_cache.get(_cid, {})
+        _titles = []
+        for _bid in _bb[:2]:
+            _t = _tmap.get(_bid, _bid)
+            # Truncate long titles
+            if len(_t) > 40:
+                _t = _t[:40] + '…'
+            _titles.append(_t)
+        _bb_str = ', '.join(_titles) + ('…' if len(_bb) > 2 else '')
+        rich_badges.append('<span class="rich-badge blocked-by" title="' + _esca(t('Blocked: {}').format(', '.join(_bb))) + '">🔒 ' + _esc(t('waiting')) + ' ' + _esc(_bb_str) + '</span>')
+    if tr.get('comments') and len(tr['comments']) > 0:
+        rich_badges.append('<span class="rich-badge comments" title="' + str(len(tr["comments"])) + ' comments">💬 ' + str(len(tr['comments'])) + '</span>')
+    rich_html = ('<div class="rich-badges">' + ''.join(rich_badges) + '</div>') if rich_badges else ''
+
+    # priority=high -> extra class on the card (red highlight)
+    prio_class = ' track-prio-high' if tr.get('priority') == 'high' else ''
+
+    # Deadline badge — first in the shared badge row below the title (NOT next to the title)
+    # due_date takes priority: if the field is set, compute the badge from it
+    # (consistent with the modal _format_due_str); the text-parsed badge from
+    # _track_severity stays as a fallback when due_date is empty.
+    _chip_text = _ft_due_str if _ft_due_raw else badge
+    deadline_chip = ''
+    if _chip_text and _chip_text != 'routine':
+        deadline_chip = ('<span class="rich-badge deadline sev-' + sev + '">'
+                         + _esc(_translate_tech_terms(_chip_text)) + '</span>')
+    # All badges on one line: deadline + priority + blocked_by + comments
+    all_badges = deadline_chip + (
+        rich_html[len('<div class="rich-badges">'):-len('</div>')]
+        if rich_html else ''
+    )
+    all_badges_html = ('<div class="rich-badges">' + all_badges + '</div>') if all_badges else ''
+    return (
+        '<div class="track-card track-card-clickable sev-' + sev + prio_class + '"' + track_data_attrs + '>'
+        '<div class="track-title">' + _esc(_translate_tech_terms(title)) + '</div>'
+        + all_badges_html + ctx_html
+        + '</div>'
+    )
+
+
+def render_tracks_zone(mm, title=None, include_closed=False, empty_hide=False, empty_text=None):
+    """Render a grid of clickable track cards (each opens the shared track modal).
+
+    Reused for several zones: the client dashboard's "Active tracks", and the
+    overview's recently-updated / recently-closed lists. Params let a caller change the heading,
+    include recently-closed tracks (so an overnight auto-close is still shown for
+    review), and hide the whole zone when empty.
+    """
     # 'deferred' — snoozed tracks (waiting for wake_date), not shown on the dashboard
     _CLOSED_STATUSES = ('done', 'dropped', 'dismissed', 'completed', 'cancelled', 'closed', 'resolved', 'deferred')
     tracks = [
         t for t in (mm.get('tracks', []) or [])
         if t.get('zone', 'client_work') != 'system_internal'
-        and t.get('status') not in _CLOSED_STATUSES
+        and (include_closed or t.get('status') not in _CLOSED_STATUSES)
     ]
+    _zone_title = title or t('🎯 Active tracks')
     _tasks_title_cache = {}  # client_id -> {task_id: title} for blocked_by lookup
     if not tracks:
+        if empty_hide:
+            return ''
         return (
-            '<div class="section-title"><h2>' + t('🎯 Active tracks') + '</h2></div>'
+            '<div class="section-title"><h2>' + _zone_title + '</h2></div>'
             '<div class="side-list"><div class="empty">'
-            + t('Client mental_models not found or contain no active tracks.') +
+            + (empty_text or t('Client mental_models not found or contain no active tracks.')) +
             '</div></div>'
         )
     sev_order = {'red': 0, 'yellow': 1, 'grey': 2, 'awaiting': 3}
@@ -260,235 +504,14 @@ def render_tracks_zone(mm):
             ord_key = sev_order.get(sev, 6)
         enriched.append((ord_key, sev, badge, tr))
     enriched.sort(key=lambda x: x[0])
-    cards = []
-    for _, sev, badge, tr in enriched:
-        # UX-fix: show the client badge only if there is a REAL client name
-        # (on the client dashboard it is noise — all tracks belong to that client)
-        _cn_raw = tr.get('client_name')
-        client_short = (_cn_raw.replace('SP ', '') if _cn_raw and 'SP ' in _cn_raw else (_cn_raw or ''))
-        track_id = tr.get('track_id', '')
-        title = tr.get('title', '')
-        context = tr.get('context', '') or ''
-        next_action = tr.get('next_action', '') or ''
-        status_label_map = {
-            'active': '',
-            'awaiting_external': t('WAITING'),
-            'blocked': t('BLOCKED'),
-            'done': t('CLOSED'),
-        }
-        status_label = status_label_map.get(tr.get('status'), '')
-        # T-1 -> Track 1 for the reader
-        track_id_ru = track_id
-        m_tid = re.match(r'^T-(\d+)$', track_id) if track_id else None
-        if m_tid:
-            track_id_ru = t('Track ') + m_tid.group(1)
-        meta_left_parts = [track_id_ru] + ([client_short.upper()] if client_short else [])
-        if status_label:
-            meta_left_parts.append(status_label)
-        meta_left = ' · '.join(p for p in meta_left_parts if p)
-        dash_link = ''
-        if tr.get('client_id'):
-            dash_link = (
-                '<a class="open-dashboard" href="dashboard_'
-                + _esca(tr["client_id"]) + '.html">' + t('→ dashboard') + '</a>'
-            )
-        if sev == 'awaiting':
-            next_html = ''
-            if next_action:
-                next_html = (
-                    '<div class="track-next sev-awaiting">'
-                    '<span class="arrow">⏳</span>'
-                    + _esc(_translate_tech_terms(next_action)) +
-                    '</div>'
-                )
-        else:
-            next_html = ''
-            if next_action:
-                next_html = (
-                    '<div class="track-next">'
-                    '<span class="arrow">→</span>'
-                    + _esc(_translate_tech_terms(next_action)) +
-                    '</div>'
-                )
-        ctx_html = ''
-        if context:
-            ctx_html = '<div class="track-context">' + _esc(_translate_tech_terms(context)) + '</div>'
-        prompt_discuss = (
-            'Let\'s break down the task "' + (tr.get('title') or '') + '" for client ' +
-            (tr.get('client_name') or 'general situation') + '. '
-            'Open the client\'s state/*.json (source of truth) and mental_model, connect the links, propose the next step.'
-        )
-        actions_html = ''  # UX-fix #8: action buttons removed from cards, access via click->modal
-        # Track card — a clickable <div>: clicking opens the modal with the full track map.
-        # No internal buttons — actions moved into the modal.
-        client_id = tr.get('client_id') or ''
-        import json as _json
-        ft = tr.get('_full_track') or {}
-        # due date string for chip
-        _ft_due_raw = ft.get('due_date') or tr.get('due_date') or ''
-        _ft_due_str = ''
-        if _ft_due_raw:
-            try:
-                from datetime import datetime as _dtt2
-                _dobj = _dtt2.strptime(str(_ft_due_raw)[:10], '%Y-%m-%d').date()
-                _ddelta = (_dobj - TODAY).days
-                if _ddelta < 0:
-                    _ft_due_str = t('overdue {}d').format(-_ddelta)
-                elif _ddelta == 0:
-                    _ft_due_str = t('today')
-                elif _ddelta <= 3:
-                    _ft_due_str = t('in {}d · {}').format(_ddelta, _dobj.strftime('%d.%m'))
-                else:
-                    _ft_due_str = t('{} · {}d').format(_dobj.strftime('%d.%m'), _ddelta)
-            except Exception:
-                _ft_due_str = str(_ft_due_raw)[:10]
-        # history JSON
-        _ft_history = ft.get('history') or []
-        _ft_history_json = _json.dumps(_ft_history, ensure_ascii=False) if _ft_history else ''
-        # details JSON
-        _ft_owner = ft.get('owner') or tr.get('owner') or ''
-        _ft_last_ev = ft.get('last_event') or ''
-        _ft_amount = ft.get('amount')
-        _ft_amount_s = ('{:,.0f}'.format(float(_ft_amount)).replace(',', ' ') + ' ₽') if _ft_amount else ''
-        _ft_linked = ft.get('linked') or {}
-        _ft_lparts = []
-        if _ft_linked.get('finkoper_task'): _ft_lparts.append('Finkoper #' + str(_ft_linked['finkoper_task']))
-        if _ft_linked.get('photos'): _ft_lparts.append(str(len(_ft_linked['photos'])) + ' photos')
-        _ft_linked_s = ', '.join(_ft_lparts)
-        _det = {}
-        _det['Track'] = track_id_ru
-        _det['Status'] = tr.get('status') or '—'
-        if _ft_owner: _det['Owner'] = _ft_owner
-        _det['Context'] = _translate_tech_terms(tr.get('context_full') or tr.get('context') or '')
-        if _ft_last_ev: _det['Last event'] = _ft_last_ev
-        if _ft_amount_s: _det['Amount'] = _ft_amount_s
-        if _ft_linked_s: _det['Linked'] = _ft_linked_s
-        _det['Next action'] = _translate_tech_terms(tr.get('next_action_full') or tr.get('next_action') or '')
-        _details_json_s = _json.dumps(_det, ensure_ascii=False)
-        _ft_source = ft.get('source') or tr.get('source') or ''
-        # === v2 rich data for the Linear-style modal ===
-        _task_type_raw = tr.get('task_type') or tr.get('type') or ''
-        _task_type_ru_map = {
-            'bank_check': '🏦 bank check',
-            'kudir_posting': '📒 income-ledger posting',
-            'pp_to_form': '💳 prepare payment order',
-            'awaiting_external': '⏳ awaiting external',
-            'client_followup': '📞 ask the client',
-            'regime_question': '⚙️ regime question',
-            'open_question': '❓ open question',
-            'investigation': '🔍 investigation',
-            'regulatory_action': '📜 regulatory',
-            'regulatory_watch': '👁 regulatory watch',
-            'infrastructure': '🛠 infrastructure',
-            'regular_check': '🔄 routine check',
-            'recovery_period': '⏪ period recovery',
-            'other': '·',
-        }
-        _task_type_ru = _task_type_ru_map.get(_task_type_raw, _task_type_raw)
-        _assignee = tr.get('owner') or tr.get('assignee') or ''
-        _priority = tr.get('priority') or 'normal'
-        _labels = tr.get('labels') or tr.get('anchors') or []
-        _type_specific = tr.get('type_specific') or {}
-        _comments = tr.get('comments') or []
-        # blocked_by with titles
-        _bb_titles = []
-        for _bid in (tr.get('blocked_by') or []):
-            _bb_titles.append({'id': _bid, 'title': _tmap.get(_bid, _bid) if '_tmap' in dir() else _bid})
-        # fallback if _tmap is not in scope (on overview)
-        if not _bb_titles and tr.get('blocked_by'):
-            for _bid in tr.get('blocked_by'):
-                _bb_titles.append({'id': _bid, 'title': _bid})
-        # Modal unification (2026-05-25): use a single builder from _track_attrs.
-        # This guarantees the SAME set of data-track-* attributes on overview,
-        # the client dashboard (via the same render_tracks_zone), and the plan (plan_today/week/month).
-        from _track_attrs import build_track_data_attrs as _build_attrs
-        # take today from generate (TODAY = Bali date) with a None fallback
-        try:
-            import generate as _gen
-            _today_for_build = getattr(_gen, 'TODAY', None)
-        except Exception:
-            _today_for_build = None
-        # Prepare tr for the builder: add the already-computed local fields
-        _tr_for_builder = dict(tr)
-        _tr_for_builder['details'] = _det
-        _tr_for_builder['_history'] = ft.get('history') if isinstance(ft, dict) else []
-        _tr_for_builder['source'] = _ft_source
-        if _ft_due_raw:
-            _tr_for_builder['due_date'] = _ft_due_raw
-        # 2026-05-25: do NOT pass badge_override — let the builder compute it from
-        # due_date via _format_due_str. We used to pass a local 'badge' from
-        # _track_severity (which could be 'routine' even with a deadline), so the
-        # modal showed different things when opened from the plan vs the dashboard.
-        track_data_attrs = _build_attrs(
-            _tr_for_builder,
-            _esca,
-            today=_today_for_build,
-            tg_for=_tg_for_client,
-            track_type_for=_track_type,
-            status_label=status_label,
-            translate_fn=_translate_tech_terms,
-            blocked_titles={b['id']: b['title'] for b in _bb_titles},
-        )
-        # v2 rich fields (Iter 1b, 2026-05-25): priority/blocked_by/comments badges
-        rich_badges = []
-        if tr.get('priority') == 'high':
-            rich_badges.append('<span class="rich-badge prio-high" title="' + t('High priority') + '">' + t('🔥 URGENT') + '</span>')
-        elif tr.get('priority') == 'low':
-            rich_badges.append('<span class="rich-badge prio-low" title="' + t('Low priority') + '">' + t('not urgent') + '</span>')
-        if tr.get('blocked_by'):
-            _bb = tr['blocked_by']
-            # Title lookup via state/tasks.json (as in risk linked_tasks)
-            _cid = tr.get('client_id', '')
-            if _cid and _cid not in _tasks_title_cache:
-                try:
-                    from _loaders import load_client_state_tasks as _lcst
-                    _td = _lcst(_cid)
-                    _tasks_title_cache[_cid] = {_t.get('id'): _t.get('title', '') for _t in (_td.get('tasks', []) if _td else [])}
-                except Exception:
-                    _tasks_title_cache[_cid] = {}
-            _tmap = _tasks_title_cache.get(_cid, {})
-            _titles = []
-            for _bid in _bb[:2]:
-                _t = _tmap.get(_bid, _bid)
-                # Truncate long titles
-                if len(_t) > 40:
-                    _t = _t[:40] + '…'
-                _titles.append(_t)
-            _bb_str = ', '.join(_titles) + ('…' if len(_bb) > 2 else '')
-            rich_badges.append('<span class="rich-badge blocked-by" title="' + _esca(t('Blocked: {}').format(', '.join(_bb))) + '">🔒 ' + _esc(t('waiting')) + ' ' + _esc(_bb_str) + '</span>')
-        if tr.get('comments') and len(tr['comments']) > 0:
-            rich_badges.append('<span class="rich-badge comments" title="' + str(len(tr["comments"])) + ' comments">💬 ' + str(len(tr['comments'])) + '</span>')
-        rich_html = ('<div class="rich-badges">' + ''.join(rich_badges) + '</div>') if rich_badges else ''
-
-        # priority=high -> extra class on the card (red highlight)
-        prio_class = ' track-prio-high' if tr.get('priority') == 'high' else ''
-
-        # Deadline badge — first in the shared badge row below the title (NOT next to the title)
-        # due_date takes priority: if the field is set, compute the badge from it
-        # (consistent with the modal _format_due_str); the text-parsed badge from
-        # _track_severity stays as a fallback when due_date is empty.
-        _chip_text = _ft_due_str if _ft_due_raw else badge
-        deadline_chip = ''
-        if _chip_text and _chip_text != 'routine':
-            deadline_chip = ('<span class="rich-badge deadline sev-' + sev + '">'
-                             + _esc(_translate_tech_terms(_chip_text)) + '</span>')
-        # All badges on one line: deadline + priority + blocked_by + comments
-        all_badges = deadline_chip + (
-            rich_html[len('<div class="rich-badges">'):-len('</div>')]
-            if rich_html else ''
-        )
-        all_badges_html = ('<div class="rich-badges">' + all_badges + '</div>') if all_badges else ''
-        cards.append(
-            '<div class="track-card track-card-clickable sev-' + sev + prio_class + '"' + track_data_attrs + '>'
-            '<div class="track-title">' + _esc(_translate_tech_terms(title)) + '</div>'
-            + all_badges_html + ctx_html
-            + '</div>'
-        )
+    cards = [render_track_card(tr, sev, badge, _tasks_title_cache)
+             for _, sev, badge, tr in enriched]
     active_n = sum(1 for t in tracks if t.get("status") != "done")
+    count_html = (str(len(tracks)) + ' ' + t('(active {})').format(active_n)) if title is None else str(len(tracks))
     return (
         '<div class="section-title">'
-        '<h2>' + t('🎯 Active tracks') + '</h2>'
-        '<span class="count">' + str(len(tracks)) + ' ' + t('(active {})').format(active_n) + '</span>'
+        '<h2>' + _zone_title + '</h2>'
+        '<span class="count">' + count_html + '</span>'
         '</div>'
         '<section class="tracks-grid">'
         + ''.join(cards) +
@@ -642,6 +665,187 @@ def render_gaps_zone(mm):
         '<div class="side-list">' + rows_html + '</div>'
         '</div>'
     )
+
+
+# ── Recent track activity (two overview zones: updated / closed, grouped by day) ──
+# Source channels that mean "an automated collector/daemon" (vs the operator's own
+# edits operator/cowork/owner/joint). Used only to float daemon-touched tracks to
+# the TOP of the "updated" list in the morning — NOT to exclude the operator's edits
+# (she wants to see her own changes too).
+_DAEMON_SRC_CHANNELS = {
+    'tg', 'telegram', 'email', 'mail', 'finkoper', 'news',
+    'tbank', 'alfa', 'alfabank', 'vtb', 'bank', 'ofd',
+}
+
+# Statuses that mean a track is CLOSED (for the "recently closed" zone). 'deferred'
+# is snoozed, not closed, so it is excluded from both zones.
+_CLOSED_FOR_ZONE = ('done', 'completed', 'dismissed', 'cancelled', 'resolved', 'dropped', 'closed')
+
+
+def _is_daemon_event(h):
+    """True if this history event was written by an automated collector/daemon."""
+    ch = str(h.get('source') or '').split(':', 1)[0].strip().lower()
+    return ch in _DAEMON_SRC_CHANNELS
+
+
+def _event_day(h):
+    from datetime import datetime, date as _date
+    s = str(h.get('ts') or h.get('date') or '')
+    try:
+        return datetime.fromisoformat(s).date()
+    except (TypeError, ValueError):
+        try:
+            y, m, dd = s.split('T')[0].split('-')[:3]
+            return _date(int(y), int(m), int(dd))
+        except (ValueError, AttributeError):
+            return None
+
+
+def _track_latest_event_day(tr):
+    """Most recent history-event date on the track (any source). None if none."""
+    ft = tr.get('_full_track') or {}
+    best = None
+    for h in (ft.get('history') or tr.get('history') or []):
+        d = _event_day(h)
+        if d and (best is None or d > best):
+            best = d
+    return best
+
+
+def _track_has_daemon_event_since(tr, cut):
+    if cut is None:
+        return False
+    ft = tr.get('_full_track') or {}
+    for h in (ft.get('history') or []):
+        d = _event_day(h)
+        if d and d >= cut and _is_daemon_event(h):
+            return True
+    return False
+
+
+def _track_close_day(tr):
+    """Date a track was closed: completed_at if present, else its last event day."""
+    ft = tr.get('_full_track') or {}
+    ca = ft.get('completed_at')
+    if ca:
+        d = _event_day({'date': ca})
+        if d:
+            return d
+    return _track_latest_event_day(tr)
+
+
+def _track_last_event(tr):
+    """Most recent history event on the track. Tie-break by array position
+    (append-only history): same-day events -> later index = newer."""
+    ft = tr.get('_full_track') or {}
+    hist = ft.get('history') or []
+    if not hist:
+        return None
+    best = max(range(len(hist)),
+               key=lambda i: (str(hist[i].get('ts') or hist[i].get('date') or ''), i))
+    return hist[best]
+
+
+# status -> (en, ru, bg, fg) for the right-corner pill
+_STATUS_SPEC = {
+    'active': ('active', 'активен', '#EAF3DE', '#3D6107'),
+    'awaiting': ('waiting', 'ждём', '#E6F1FB', '#185FA5'),
+    'awaiting_external': ('waiting', 'ждём', '#E6F1FB', '#185FA5'),
+    'blocked': ('blocked', 'заблокирован', '#FCEBEB', '#9B1C1C'),
+    'done': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
+    'completed': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
+    'closed': ('closed', 'закрыт', '#ECEBE6', '#5F5E5A'),
+    'resolved': ('resolved', 'решён', '#ECEBE6', '#5F5E5A'),
+    'cancelled': ('cancelled', 'отменён', '#F1EFE8', '#888780'),
+    'dismissed': ('dismissed', 'снят', '#F1EFE8', '#888780'),
+    'dropped': ('dropped', 'снят', '#F1EFE8', '#888780'),
+    'deferred': ('deferred', 'отложен', '#F1EFE8', '#888780'),
+}
+
+
+def _status_spec(tr):
+    st = ((tr.get('_full_track') or {}).get('status') or tr.get('status') or '').lower()
+    s = _STATUS_SPEC.get(st)
+    if s:
+        return (tp(s[0], s[1]), s[2], s[3])
+    return (st, '#F1EFE8', '#5F5E5A') if st else None
+
+
+def _build_modal_attrs(tr):
+    """data-track-* attributes so an event row opens the SAME track modal as a card.
+    Strips data-track-type so the team/direct toggle never hides recent rows."""
+    import re as _re
+    from _track_attrs import build_track_data_attrs as _ba
+    ft = tr.get('_full_track') or {}
+    det = {
+        'Track': tr.get('track_id', ''),
+        'Status': tr.get('status') or ft.get('status') or '—',
+        'Context': _translate_tech_terms(tr.get('context_full') or tr.get('context') or ''),
+        'Next action': _translate_tech_terms(tr.get('next_action_full') or tr.get('next_action') or ''),
+    }
+    own = ft.get('owner') or tr.get('owner')
+    if own:
+        det['Owner'] = own
+    trb = dict(tr)
+    trb['details'] = det
+    trb['_history'] = ft.get('history') if isinstance(ft, dict) else []
+    trb['source'] = ft.get('source') or tr.get('source') or ''
+    due = ft.get('due_date') or tr.get('due_date')
+    if due:
+        trb['due_date'] = due
+    attrs = _ba(trb, _esca, today=TODAY, tg_for=_tg_for_client,
+                track_type_for=_track_type, status_label='',
+                translate_fn=_translate_tech_terms, blocked_titles={})
+    return _re.sub(r'\s*data-track-type="[^"]*"', '', attrs)
+
+
+def _track_event_row(tr):
+    """A track rendered as the shared event row (clickable -> track modal)."""
+    cn = tr.get('client_name') or ''
+    cn_short = cn.replace('SP ', '') if cn else ''
+    title = _esc(_translate_tech_terms(tr.get('title', '') or tr.get('track_id', '')))
+    head = ('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title
+    last = _track_last_event(tr)
+    detail = _esc(_translate_tech_terms((last.get('event') or '').strip())) if last else ''
+    when = ''
+    if last:
+        when = ' · '.join(p for p in [source_label(last.get('source')),
+                                      relative_when(last.get('ts') or last.get('date'), TODAY)] if p)
+    return event_row(cn, head, detail, when, _status_spec(tr), _build_modal_attrs(tr))
+
+
+def collect_recent_track_zones(mm, days=3):
+    """Two morning event sections: (updated_html, closed_html) — same component as
+    the decisions block. updated = open tracks touched within `days` (daemon-touched
+    first, then newest); closed = tracks closed within `days`. 5 shown + show more."""
+    from datetime import timedelta
+    cut = (TODAY - timedelta(days=days - 1)) if TODAY else None
+    updated, closed = [], []
+    for tr in (mm.get('tracks') or []):
+        if (tr.get('zone', 'client_work') or 'client_work') == 'system_internal':
+            continue
+        ft = tr.get('_full_track') or {}
+        raw_status = (ft.get('status') or tr.get('status') or '')
+        if raw_status in _CLOSED_FOR_ZONE:
+            d = _track_close_day(tr)
+            if d and cut and d >= cut:
+                closed.append((d.isoformat(), tr))
+        elif raw_status == 'deferred':
+            continue
+        else:
+            d = _track_latest_event_day(tr)
+            if d and cut and d >= cut:
+                daemon = _track_has_daemon_event_since(tr, cut)
+                updated.append(((1 if daemon else 0, d.isoformat()), tr))
+    updated.sort(key=lambda x: x[0], reverse=True)
+    closed.sort(key=lambda x: x[0], reverse=True)
+    upd_rows = [_track_event_row(tr) for _, tr in updated]
+    cls_rows = [_track_event_row(tr) for _, tr in closed]
+    updated_html = render_event_section(tp('🔄 Recently updated', '🔄 Недавно обновили'),
+                                        upd_rows[:10], count=len(upd_rows))
+    closed_html = render_event_section(tp('✅ Recently closed', '✅ Недавно закрыли'),
+                                       cls_rows[:10], count=len(cls_rows))
+    return updated_html, closed_html
 
 
 def render_clients_grid_compact(mm, deadlines, awaiting,
@@ -822,7 +1026,19 @@ def render_overview_v2():
         '</div>'
     )
 
-    dig = render_morning_digest(daemon_news, daemon_mail, daemon_updates)
+    mail_block = render_mail_block(daemon_mail)
+    news_block = render_news_block(daemon_news)
+    # Two morning zones of the SAME clickable track cards as the plan / client card,
+    # mirrored on the main screen for a morning focus: recently UPDATED tracks and
+    # recently CLOSED tracks, grouped by day. Includes changes from daemons AND the
+    # operator (daemon-touched tracks float to the top in the morning).
+    updated_zone, closed_zone = collect_recent_track_zones(mm)
+    recent_link = ''
+    if updated_zone or closed_zone:
+        recent_link = (
+            '<div style="margin:0 0 var(--space-lg);font-size:13px">'
+            '<a href="changelog.html">' + tp('All state changes', 'Все изменения state') + ' →</a></div>'
+        )
 
     # modal HTML/JS -> PROMPT_MODAL_HTML/JS from _css.py (2026-05-24)
 
@@ -892,9 +1108,16 @@ def render_overview_v2():
     questions_zone = render_brief_zone(clients, state_ops.state_read, PLAN_DIR, TODAY,
                                        fmt_date=_format_date_ru, esc=_esc, esca=_esca,
                                        make_attrs=_make_attrs, sections=('questions',))
-    analysis_zone = render_brief_zone(clients, state_ops.state_read, PLAN_DIR, TODAY,
-                                      fmt_date=_format_date_ru, esc=_esc, esca=_esca,
-                                      make_attrs=_make_attrs, sections=('brief',))
+    # "Today summary" = brief lead (agent-written if present, else deterministic over
+    # the whole picture) + Top-5 embedded as a sub-section — one coherent block.
+    _summary_lead = brief_lead_html(clients, state_ops.state_read, PLAN_DIR, TODAY,
+                                    _format_date_ru, _esc)
+    summary_block = (
+        '<div class="aw-widget" style="margin-bottom:var(--space-lg)">'
+        '<div class="aw-head">' + tp('🧭 Today summary', '🧭 Сводка на сегодня') + '</div>'
+        + _summary_lead + _w['top5'] +
+        '</div>'
+    )
     title = t("Bookkeeping — ") + _format_date_ru(TODAY)
     return (
         '<!DOCTYPE html>\n<html lang="en"><head>'
@@ -902,14 +1125,18 @@ def render_overview_v2():
         '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTUuNSIgZmlsbD0iIzFGNEU3OSIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTYiIHI9IjEyLjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0I3OTI1NyIgc3Ryb2tlLXdpZHRoPSIxLjMiLz48dGV4dCB4PSIxNiIgeT0iMTciIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJjZW50cmFsIiBmb250LWZhbWlseT0iQXJpYWwsSGVsdmV0aWNhLHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiNmZmZmZmYiPtCY0JI8L3RleHQ+PC9zdmc+">'
         '<meta name="viewport" content="width=device-width, initial-scale=1.0">'
         '<title>' + _esc(title) + '</title>'
-        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + '</style>'
+        '<style>' + DESIGN_TOKENS_CSS + OVERVIEW_SPECIFIC_CSS + OVERVIEW_V2_CSS + PROMPT_MODAL_CSS + DICTATE_CSS + SIDEBAR_CSS + TRACK_MODAL_CSS  + ANALYTICS_CSS + BRIEF_CSS + ANALYSIS_CSS + EVENT_CSS + '</style>'
         '</head><body>'
         '<div class="layout-shell">'
         + render_sidebar(active='dashboard')
         + '<main class="main-content">'
         + head + _w['stats']
-        + analysis_zone + questions_zone + _w['top5'] + _w['activity']
-        + dig + global_mic
+        + summary_block
+        + questions_zone
+        + updated_zone + closed_zone + recent_link
+        + _w['activity']
+        + mail_block + news_block
+        + global_mic
         + '</main></div>'
         + PROMPT_MODAL_HTML
         + DICTATE_MODAL_HTML

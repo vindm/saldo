@@ -19,8 +19,9 @@ import os, sys, re, glob, json
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-PLAN = os.path.dirname(HERE)  # project root
+PLAN = os.path.dirname(HERE)  # repo root (connectors/, docs, modules)
 import state_ops
+DATA = str(state_ops._PLAN_DIR)  # data dir (clients/<id>/state, mental_model, journal)
 
 errors, warns = [], []
 def err(cat, msg):  errors.append((cat, msg))
@@ -32,7 +33,7 @@ n_clients = len(clients)
 
 # --- 1. Clients: CLIENT_FOLDERS vs. real state/ + core files ---
 for cid, folder in clients:
-    sd = os.path.join(PLAN, folder, 'state')
+    sd = os.path.join(DATA, folder, 'state')
     if not os.path.isdir(sd):
         err('Clients', f'{cid}: no state/ folder ({folder})')
         continue
@@ -42,7 +43,7 @@ for cid, folder in clients:
 
 # --- 2. Data integrity: JSON validity, UTF-8, NUL ---
 for cid, folder in clients:
-    for jf in glob.glob(os.path.join(PLAN, folder, 'state', '*.json')):
+    for jf in glob.glob(os.path.join(DATA, folder, 'state', '*.json')):
         raw = open(jf, 'rb').read()
         rel = os.path.relpath(jf, PLAN)
         if b'\x00' in raw:
@@ -51,7 +52,7 @@ for cid, folder in clients:
             json.loads(raw.decode('utf-8'))
         except Exception as e:
             err('Integrity', f'broken JSON/UTF-8: {rel} — {str(e)[:50]}')
-    mm = os.path.join(PLAN, folder, 'mental_model.md')
+    mm = os.path.join(DATA, folder, 'mental_model.md')
     if os.path.exists(mm):
         raw = open(mm, 'rb').read()
         rel = os.path.relpath(mm, PLAN)

@@ -18,7 +18,7 @@ the attributes are built by the passed make_attrs (build_track_data_attrs from _
 import os, glob, json
 from datetime import date
 from _helpers import track_stale_days  # R8
-from _strings import t
+from _strings import t, tp
 
 _PRIO = {'high': 0, 'normal': 1, 'low': 2}
 
@@ -46,21 +46,41 @@ def _esca(s):
 
 def collect_brief(clients, state_read, today):
     decisions, questions, nearest = [], [], None
+    overdue, due_today = [], []
+    risks_red = 0
     for c in clients:
         cid = c['id']
         cname = c.get('name_short') or cid
+        try:
+            _rj = state_read(cid, 'risks.json') or {}
+            risks_red += sum(1 for r in (_rj.get('risks') or []) if r.get('severity') == 'red')
+        except Exception:
+            pass
         try:
             t = state_read(cid, 'tasks.json') or {}
         except Exception:
             t = {}
         arr = t.get('tasks', []) if isinstance(t, dict) else (t or [])
         for tr in arr:
-            if not isinstance(tr, dict) or tr.get('status') not in ('active', 'open'):
+            if not isinstance(tr, dict):
+                continue
+            status = tr.get('status')
+            # Deadlines (overdue / today / nearest) — from all OPEN tasks incl.
+            # 'awaiting', matching the header's overdue count (active+awaiting).
+            if status in ('active', 'awaiting', 'open'):
+                dd = _to_date(tr.get('due_date'))
+                if dd:
+                    _it = (dd, cname, (tr.get('title') or '')[:60])
+                    if dd < today:
+                        overdue.append(_it)
+                    elif dd == today:
+                        due_today.append(_it)
+                    elif nearest is None or dd < nearest[0]:
+                        nearest = _it
+            # Questions / decisions — only from actively-worked tasks.
+            if status not in ('active', 'open'):
                 continue
             tt = tr.get('task_type') or tr.get('type')
-            dd = _to_date(tr.get('due_date'))
-            if dd and dd >= today and (nearest is None or dd < nearest[0]):
-                nearest = (dd, cname, (tr.get('title') or '')[:60])
             if tt == 'open_question':
                 a = tr.get('assist') or {}
                 acts = a.get('actions') or None
@@ -90,19 +110,42 @@ def collect_brief(clients, state_read, today):
                     'due': tr.get('due_date') or '', 'stale': track_stale_days(tr, today),
                 })
     questions.sort(key=lambda q: (_PRIO.get(q['priority'], 1), 0 if q.get('stale') else 1, -(q['age'] or 0)))
-    return {'decisions': decisions, 'questions': questions, 'nearest': nearest}
+    overdue.sort(key=lambda x: x[0])      # most overdue (oldest due) first
+    due_today.sort(key=lambda x: x[1])
+    return {'decisions': decisions, 'questions': questions, 'nearest': nearest,
+            'overdue': overdue, 'due_today': due_today, 'risks_red': risks_red}
 
 
 def _brief_text(vm, today, fmt_date):
-    nd, qs, dec = vm['nearest'], vm['questions'], vm['decisions']
+    ov, dt, nd = vm.get('overdue') or [], vm.get('due_today') or [], vm['nearest']
+    qs, dec = vm['questions'], vm['decisions']
     parts = [fmt_date(today) + '.']
-    parts.append(t("{} awaiting your decision").format(len(dec)) if dec
-                 else t("nothing urgent on you"))
+    # 1) Urgency — lead with overdue, then today, else reassure (honest, never
+    #    "nothing urgent" while something is overdue).
+    if ov:
+        o = ov[0]
+        parts.append(tp('overdue: {} (oldest — {}: {})',
+                        'просрочено: {} (раньше всех — {}: {})').format(len(ov), o[1], o[2]))
+    elif dt:
+        d0 = dt[0]
+        parts.append(tp('due today: {} ({})',
+                        'срок сегодня: {} ({})').format(len(dt), d0[1]))
+    else:
+        parts.append(tp('nothing urgent today', 'срочного на сегодня нет'))
+    # 2) Nearest upcoming deadline (after today)
     if nd:
-        parts.append(t("nearest due — {} {}").format(nd[1], nd[0].strftime('%d.%m')))
-    n_old = sum(1 for q in qs if (q['age'] or 0) >= 90)
-    if n_old:
-        parts.append(t("{} long-standing questions can be closed").format(n_old))
+        parts.append(tp('next due — {} {}',
+                        'ближайший срок — {} {}').format(nd[1], nd[0].strftime('%d.%m')))
+    # 3) What needs her / how many questions are open (specific counts, no false
+    #    "can be closed" claim — the «Открытые вопросы» block below lists them).
+    if dec:
+        parts.append(tp('awaiting your decision: {}',
+                        'ждут твоего решения: {}').format(len(dec)))
+    if qs:
+        parts.append(tp('open questions: {}',
+                        'открытых вопросов: {}').format(len(qs)))
+    if vm.get('risks_red'):
+        parts.append(tp('red risks: {}', '🔴 рисков: {}').format(vm['risks_red']))
     return '; '.join(parts).replace('.;', '.', 1) + '.'
 
 
@@ -124,6 +167,27 @@ def _dl_badge(dd, today, esc):
     return f'<span class="aw-dl-badge {cls}">{esc(txt)}</span>'
 
 
+def brief_lead_html(clients, state_read, plan_dir, today, fmt_date, esc=None):
+    """Inner HTML for the "Today summary" lead. Prefers an AGENT-WRITTEN brief
+    (journal/brief_<date>.md — composed by the mm_update daemon with full context
+    over the whole dashboard); falls back to a deterministic, honest summary."""
+    esc = esc or _esc
+    import re as _re
+    try:
+        p = os.path.join(plan_dir, 'journal', 'brief_%s.md' % today.isoformat())
+        if os.path.isfile(p):
+            raw = open(p, encoding='utf-8').read().strip()
+            if raw:
+                html = esc(raw)
+                html = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+                html = html.replace('\n', '<br>')
+                return '<div class="aw-body brief-text">' + html + '</div>'
+    except Exception:
+        pass
+    vm = collect_brief(clients, state_read, today)
+    return '<div class="aw-body brief-text">' + esc(_brief_text(vm, today, fmt_date)) + '</div>'
+
+
 def render_brief_zone(clients, state_read, plan_dir, today, fmt_date=None,
                       esc=None, esca=None, make_attrs=None,
                       sections=('brief', 'decisions', 'questions')):
@@ -136,7 +200,7 @@ def render_brief_zone(clients, state_read, plan_dir, today, fmt_date=None,
     brief = (
         '<div class="aw-widget brief-lead">'
         '<div class="aw-head">' + t('🧭 Brief for today') + '</div>'
-        '<div class="aw-body brief-text">' + esc(_brief_text(vm, today, fmt_date)) + '</div>'
+        + brief_lead_html(clients, state_read, plan_dir, today, fmt_date, esc) +
         '</div>'
     )
 
@@ -257,17 +321,17 @@ BRIEF_CSS = (
     ".aw-decisions .aw-row{background:var(--red-bg);border-bottom:none;margin-bottom:6px}"
     ".aw-decisions .aw-row:hover{background:#F4CBC4}"
     ".aw-questions{}"
-    ".aw-questions .aw-head{color:var(--text-muted)}"
+    ".aw-questions .aw-head{color:var(--text-primary)}"
     ".aw-questions-all{}"
     ".aw-questions-all>summary{cursor:pointer;list-style:none}"
     ".aw-questions-all>summary::-webkit-details-marker{display:none}"
-    ".aw-questions-all .aw-head{color:var(--text-muted)}"
+    ".aw-questions-all .aw-head{color:var(--text-primary)}"
     ".qa-client{font-size:13px;font-weight:600;color:var(--text-secondary);margin:10px 0 3px;text-transform:uppercase;letter-spacing:.03em}"
     ".qa-client:first-child{margin-top:0}"
     ".qa-n{color:var(--text-muted);font-weight:500}"
     ".qa-row{padding:5px 0}"
-    ".qa-more{margin-top:8px;border-top:1px solid var(--border);padding-top:6px}"
-    ".qa-more>summary{cursor:pointer;font-size:14px;color:var(--accent-blue);font-weight:500;list-style:none;padding:4px 0}"
+    ".qa-more{margin-top:8px}"
+    ".qa-more>summary{cursor:pointer;display:block;width:100%;text-align:center;padding:9px;color:var(--accent-blue);font-size:13px;font-weight:500;list-style:none;border-top:1px solid var(--border)}"
     ".qa-more>summary::-webkit-details-marker{display:none}"
     ".qa-more-body{margin-top:4px}"
 )

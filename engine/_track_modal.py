@@ -642,6 +642,15 @@ TRACK_MODAL_JS = r"""
     // History
     var elHistSec = document.getElementById('tm-history-section');
     var elHistBody = document.getElementById('tm-history-body');
+    var RU_MON=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+    function fmtWhen(h){
+      var s=(h.ts||h.date||'').trim(); if(s.length<10) return s;
+      var dd=parseInt(s.slice(8,10),10), mm=parseInt(s.slice(5,7),10);
+      if(!mm||mm<1||mm>12) return s;
+      var out=dd+' '+RU_MON[mm-1];
+      if(s.indexOf('T')>=0 && s.length>=16) out+=', '+s.slice(11,16);
+      return out;
+    }
     try {
       var hist = JSON.parse(currentTrack.historyJson);
       var TECH = /resolves_when|no_auto_resolve|blocked_by|hardening|backfill|signal.?process/i;
@@ -656,7 +665,7 @@ TRACK_MODAL_JS = r"""
           var srcHtml = src ? '<span class="h-src">' + esc(src) + '</span>' : '';
           var autoHtml = h.auto ? '<span class="h-auto">__AUTO__</span>' : '';
           return '<div class="tm-history-item' + autoCls + '">' +
-            '<span class="h-date">' + esc(h.date || h.ts || '') + '</span>' +
+            '<span class="h-date">' + esc(fmtWhen(h)) + '</span>' +
             esc(stripIds(h.event || h.summary || '')) +
             srcHtml + autoHtml +
           '</div>';

@@ -9,7 +9,7 @@ import re as _re
 import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from _strings import t
+from _strings import t, tp
 
 
 def _today():
@@ -47,6 +47,12 @@ def _close_date(t):
     return max(hist_dates) if hist_dates else None
 
 
+# All statuses that mean a track is CLOSED (no longer in work). Kept in sync with
+# _overview_shared.CLOSED_TRACK_STATUSES / _components. 'deferred' is snoozed (not
+# closed and not active) — excluded from BOTH open and closed counts.
+_CLOSED_STATUSES = {"done", "dropped", "dismissed", "completed", "cancelled", "resolved", "closed"}
+
+
 def compute_progress_to_zero(all_tracks, window_days=7):
     today = _today()
     cutoff = today - timedelta(days=window_days)
@@ -55,12 +61,17 @@ def compute_progress_to_zero(all_tracks, window_days=7):
     open_count = 0
     closed_dates = set()
     for t in all_tracks:
-        if t.get("status") in ("done", "dropped", "dismissed"):
+        status = t.get("status")
+        if (t.get("zone", "client_work") or "client_work") == "system_internal":
+            continue
+        if status in _CLOSED_STATUSES:
             d = _close_date(t)
             if d:
                 if d >= cutoff:
                     closed_recent += 1
                 closed_dates.add(d)
+        elif status == "deferred":
+            pass  # snoozed — neither open work nor a closure
         else:
             open_count += 1
         ca = _parse_date(t.get("created_at"))
@@ -71,7 +82,7 @@ def compute_progress_to_zero(all_tracks, window_days=7):
     while cur in closed_dates:
         streak += 1
         cur = cur - timedelta(days=1)
-    closed_today = sum(1 for t in all_tracks if t.get("status") in ("done", "dropped", "dismissed")
+    closed_today = sum(1 for t in all_tracks if t.get("status") in _CLOSED_STATUSES
         and _close_date(t) == today)
     return {
         "open": open_count, "closed_recent": closed_recent, "created_recent": created_recent,
@@ -181,7 +192,7 @@ def render_stats_strip(metrics, n_overdue, n_today):
     streak_emoji = "🔥" if metrics["streak"] >= 3 else "⚡" if metrics["streak"] >= 1 else "·"
     return (
         '<section class="aw-stats">'
-        '<div class="stat"><span class="stat-num">{open_n}</span><span class="stat-lbl">' + t('Open items') + '</span></div>'
+        '<a class="stat stat-link" href="plan_today.html"><span class="stat-num">{open_n}</span><span class="stat-lbl">' + t('Open items') + '</span></a>'
         '<div class="stat stat-red"><span class="stat-num">{ov}</span><span class="stat-lbl">' + t('Overdue') + '</span></div>'
         '<div class="stat stat-amber"><span class="stat-num">{td}</span><span class="stat-lbl">' + t('Due today') + '</span></div>'
         '<div class="stat stat-green"><span class="stat-num">{ct}</span><span class="stat-lbl">' + t('Closed today') + '</span></div>'
@@ -239,7 +250,7 @@ def _track_data_attrs(t):
     return _re_an.sub(r'\s*data-track-type="[^"]*"', '', a)
 
 
-def render_focus_top5_widget(focus, plan_today_url="plan_today.html"):
+def render_focus_top5_widget(focus, plan_today_url="plan_today.html", embedded=False):
     """Top-5 for today. Button -> Plan.Today."""
     if not focus:
         body = '<div class="aw-empty">' + t('Nothing urgent for today') + '</div>'
@@ -265,6 +276,13 @@ def render_focus_top5_widget(focus, plan_today_url="plan_today.html"):
                 ' <span class="aw-client">— {client}</span>'
                 '</div>'.format(a=attrs, bc=badge_cls, bt=_esc(badge_txt), title=_esc(title), client=_esc(client)))
         body = "".join(rows)
+    if embedded:
+        return (
+            '<div class="brief-top5">'
+            '<div class="brief-top5-head">' + tp('Top-5 today', 'Топ-5 на сегодня') + ' '
+            '<a class="aw-link" href="{url}">' + t('→ full plan') + '</a></div>'
+            '<div class="aw-body">{body}</div></div>'
+        ).format(url=_esc(plan_today_url), body=body)
     return (
         '<div class="aw-widget aw-focus">'
         '<div class="aw-head">' + t('🎯 Top-5 for today') + ' '
@@ -342,6 +360,10 @@ body.mode-direct [data-track-type="team"]{display:none !important}
 .aw-stats .stat{display:flex;flex-direction:column;gap:3px;padding:0;
   border-right:none;min-width:0}
 .aw-stats .stat-num{font-size:22px;font-weight:500;color:var(--text-primary);line-height:1}
+.aw-stats a.stat-link{text-decoration:none;color:inherit;cursor:pointer}
+.brief-top5{margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.brief-top5-head{font-size:15px;font-weight:600;color:var(--text-secondary);margin-bottom:8px;display:flex;justify-content:space-between;align-items:baseline}
+.aw-stats a.stat-link:hover .stat-num{color:var(--accent-blue)}
 .aw-stats .stat-lbl{font-size:11.5px;color:var(--text-muted);text-transform:uppercase;
   letter-spacing:0.05em}
 .aw-stats .stat-red .stat-num{color:var(--accent-red)}
@@ -352,10 +374,11 @@ body.mode-direct [data-track-type="team"]{display:none !important}
 .aw-widget{background:var(--bg-card);border:1px solid var(--border);
   border-radius:var(--radius-card);box-shadow:none;padding:16px 20px;
   margin-bottom:14px}
-.aw-head{font-size:12px;font-weight:500;margin-bottom:8px;color:var(--text-muted);
-  text-transform:uppercase;letter-spacing:.05em;
-  display:flex;justify-content:space-between;align-items:center}
-.aw-count{font-size:12px;font-weight:500;color:var(--text-muted);text-transform:none;letter-spacing:0}
+.aw-head{font-size:var(--fs-h2,18px);font-weight:600;margin:0 0 12px;color:var(--text-primary);
+  text-transform:none;letter-spacing:0;padding-bottom:var(--space-sm,8px);
+  border-bottom:2px solid var(--border);
+  display:flex;justify-content:space-between;align-items:baseline}
+.aw-count{font-size:var(--fs-meta,13px);font-weight:500;color:var(--text-muted);text-transform:none;letter-spacing:0}
 .aw-link{font-size:13px;font-weight:500;color:var(--accent-blue);text-decoration:none;
   text-transform:none;letter-spacing:0;padding:2px 6px;border-radius:6px;transition:all 120ms}
 .aw-link:hover{color:var(--text-primary)}
@@ -375,19 +398,8 @@ body.mode-direct [data-track-type="team"]{display:none !important}
 .dl-soon{background:var(--yellow-bg);color:#8A6730}
 .dl-week{background:var(--yellow-bg);color:#8A6730}
 .dl-plan{background:var(--blue-bg);color:var(--accent-blue)}
-.aw-act-row{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;
   border-bottom:1px solid var(--border);font-size:15px;line-height:1.4;
   border-radius:4px;transition:background 120ms;margin:0 -8px}
-.aw-act-row:last-child{border-bottom:none}
-.aw-act-row.track-card-clickable{cursor:pointer}
-.aw-act-row.track-card-clickable:hover{background:var(--bg-page)}
-.aw-act-date{font-size:14px;color:var(--text-muted);min-width:90px;flex-shrink:0;text-transform:lowercase}
-.aw-act-icon{font-size:15px;flex-shrink:0;width:18px;text-align:center}
-.aw-act-count{font-size:14px;color:var(--text-muted);background:var(--bg-page);padding:1px 6px;border-radius:6px;margin-left:4px}
-.aw-act-row.act-filing .aw-text b,.aw-act-row.act-document .aw-text b{color:var(--accent-green)}
-.aw-act-row.act-payment .aw-text b{color:var(--accent-yellow)}
-.aw-act-row.act-decision .aw-text b,.aw-act-row.act-reply .aw-text b{color:var(--accent-blue)}
-.aw-act-row.act-note .aw-text b,.aw-act-row.act-status_change .aw-text b{color:var(--text-muted)}
 
 """
 
@@ -418,15 +430,16 @@ def _classify_event(ev):
     return str(kind)
 
 
-def recent_activity(all_tracks, journal_path, limit=15):
+def recent_activity(all_tracks, journal_path, limit=15, decisions_only=False, window_days=14):
     """Feed of meaningful events: what was done/updated in client work.
     Uses the track title, not the raw event_text. Technical events are hidden."""
     items = []
     today = _today()
-    horizon = today - timedelta(days=14)  # only the last 2 weeks
+    horizon = today - timedelta(days=window_days)
 
     # 1) By tracks — the latest meaningful event
-    for t in all_tracks:
+    #    (skipped when decisions_only: the new 'updated/closed tracks' zones own this)
+    for t in (all_tracks if not decisions_only else []):
         history = t.get("history") or []
         cid = t.get("client_id") or ""
         cname = t.get("client_name") or ""
@@ -515,8 +528,8 @@ def recent_activity(all_tracks, journal_path, limit=15):
                     if not summ or rec.get("kind") not in ("decision", "significant"):
                         continue
                     items.append({
-                        "date": d, "icon": _icon('analysis'), "kind": "decision",
-                        "action": "Decision recorded",
+                        "date": d, "ts": rec.get("ts"), "icon": _icon('analysis'),
+                        "kind": "decision", "action": "Decision recorded",
                         "title": summ[:90],
                         "client_id": cid, "client_name": cname or cid,
                         "track": None, "source": "history",
@@ -539,11 +552,15 @@ def _humanize_date(d, today):
     return d.strftime("%d.%m")
 
 
-def render_activity_widget(activity, max_show=15):
+def render_activity_widget(activity, max_show=10, show=5):
+    """Latest decisions — rendered with the SAME shared event component as the
+    recently-updated / recently-closed track lists (avatar + headline, right
+    column: relative date). One component, one style."""
     today = _today()
+    from _helpers import relative_when
+    from _components import event_row, render_event_section
     # Dedup by (action, title, client, date)
-    seen = {}
-    order = []
+    seen, order = {}, []
     for it in activity:
         key = (it.get("action", ""), it.get("title", ""), it["client_name"], it["date"].isoformat())
         if key in seen:
@@ -553,39 +570,17 @@ def render_activity_widget(activity, max_show=15):
             order.append(key)
     activity = [seen[k] for k in order][:max_show]
     if not activity:
-        body = '<div class="aw-empty">' + t('No task activity recorded in the last 2 weeks') + '</div>'
-    else:
-        rows = []
-        for it in activity:
-            d_str = _humanize_date(it["date"], today)
-            action = _esc(t(it.get("action", "Updated")))
-            title = _esc(it.get("title", ""))
-            client = _esc(it["client_name"] or t("general"))
-            attrs = ""
-            row_cls = "aw-act-row"
-            _kind = it.get("kind") or ""
-            if _kind:
-                row_cls += " act-" + _kind
-            if it.get("track"):
-                attrs = _track_data_attrs(it["track"])
-                row_cls += " track-card-clickable"
-            count_badge = ""
-            if it.get("count", 1) > 1:
-                count_badge = ' <span class="aw-act-count">×{}</span>'.format(it["count"])
-            rows.append(
-                '<div class="{cls}"{a}>'
-                '<span class="aw-act-date">{dt}</span>'
-                '<span class="aw-act-icon">{ic}</span>'
-                '<span class="aw-text"><b>{ac}:</b> {ti}{cb}</span>'
-                ' <span class="aw-client">— {c}</span>'
-                '</div>'.format(cls=row_cls, a=attrs, dt=_esc(d_str), ic=it["icon"],
-                                ac=action, ti=title, cb=count_badge, c=client))
-        body = "".join(rows)
-    return (
-        '<div class="aw-widget aw-activity">'
-        '<div class="aw-head">' + t('📋 Recent updates and decisions') + ' <span class="aw-count">{n}</span></div>'
-        '<div class="aw-body">{b}</div></div>'
-    ).format(n=len(activity), b=body)
+        return ''
+    rows = []
+    for it in activity:
+        when = relative_when(it.get("ts") or (it["date"].isoformat() if it.get("date") else ""), today)
+        head = _esc(it.get("title", ""))
+        cnt = it.get("count", 1)
+        if cnt > 1:
+            head += ' <span class="ev-when">×%d</span>' % cnt
+        rows.append(event_row(it.get("client_name") or "", head, '', when, None, ''))
+    return render_event_section(tp('📋 Latest decisions', '📋 Последние решения'),
+                                rows, count=len(activity), show=show)
 
 
 def render_widgets_split(clients_data_path, journal_path, calculate_health_func, clients,
@@ -596,14 +591,22 @@ def render_widgets_split(clients_data_path, journal_path, calculate_health_func,
     from _tracks import load_all_tracks
     all_tracks = load_all_tracks()
     metrics = compute_progress_to_zero(all_tracks, window_days=7)
+    # "В работе" must match the plan: count the SAME action set the plan shows
+    # (aggregate_tasks routes open-questions / waiting / risks out of the plan).
+    try:
+        import generate as _gen
+        from _aggregator import aggregate_tasks as _agg
+        metrics["open"] = len((_agg(_gen.TODAY) or {}).get("all", []))
+    except Exception:
+        pass
     upcoming = upcoming_deadlines(all_tracks, window_days=30)
     overdue = overdue_tracks(all_tracks)
     n_today = sum(1 for t in upcoming if t.get("days_left") == 0)
     focus = compute_focus_top5(all_tracks, overdue, upcoming, max_count=5)
-    activity = recent_activity(all_tracks, journal_path, limit=40)
+    activity = recent_activity(all_tracks, journal_path, limit=40, decisions_only=True, window_days=30)
     return {
         "stats": render_stats_strip(metrics, len(overdue), n_today),
-        "top5": render_focus_top5_widget(focus),
+        "top5": render_focus_top5_widget(focus, embedded=True),
         "activity": render_activity_widget(activity),
     }
 

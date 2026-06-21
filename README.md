@@ -2,7 +2,7 @@
 
 **An AI-native operating system for a multi-client bookkeeping practice.** You *read* the dashboards to see the state of the whole practice; you *change* everything by talking to an AI assistant in plain language. Behind it, a Python engine deterministically renders that assistant's structured memory into the screens you read — so **`dashboards = render(state)`**, and the assistant's only job is to keep the state correct.
 
-[![Live demo](https://img.shields.io/badge/▶_live_demo-1F4E79)](https://vindm.github.io/Saldo/)
+[![Live demo](https://img.shields.io/badge/▶_live_demo-1F4E79)](https://vindm.github.io/saldo/)
 ![License: FSL-1.1-MIT](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Status: production](https://img.shields.io/badge/status-daily%20production-success)
@@ -14,7 +14,7 @@
 
 <sub>From the overview to the Plan, expand a batchable operation to see it fan out across clients, open a task for its hypothesis and history, then hand the generated prompt to Cowork — and back to the updated dashboard. Recorded against a fully **synthetic** example instance (Aurora, Cobalt, Harbor…). No real data.</sub>
 
-**▶ [Click through the live demo](https://vindm.github.io/Saldo/)** — the same synthetic instance, rendered by the engine and published to GitHub Pages.
+**▶ [Click through the live demo](https://vindm.github.io/saldo/)** — the same synthetic instance, rendered by the engine and published to GitHub Pages.
 
 ## What it is, in one mental model
 
@@ -35,7 +35,7 @@ There are only two surfaces, and they map onto the two things you ever do:
 | **See what's going on** — what's overdue, what's waiting on you, where each client stands | read the generated dashboards | the HTML (overview · plan · periods · client cards) |
 | **Change something** — answer an open question, run a close, add a client, draft a message | talk to the assistant in plain language | the Cowork chat |
 
-A typical morning: open the **overview**, see the practice's open questions with the assistant's proposed call on each, approve or redirect them in chat, let it run the batchable operations, and review the messages it drafted in the practice's brand. Every action that writes state, sends something to a client, or touches a browser **requires your explicit approval** — the human stays in the loop by design.
+A typical morning: open the **overview**, see the practice's open questions with the assistant's proposed call on each, approve or redirect them in chat, let it run the batchable operations, and review the messages it drafted in the practice's brand. The assistant keeps the model current on its own (recording incoming signals needs no approval); what **requires your explicit approval** is anything sent to a client, any browser action, and closing a track — the human stays in the loop where it matters.
 
 ## How it works
 
@@ -57,7 +57,7 @@ The loop is the product: **you read state as a dashboard, and you change it by t
 - **Deterministic, fault-tolerant generation — no server.** A missing or malformed source degrades to an empty panel with a status dot, never a crash. The whole UI is a build artifact you can delete and regenerate.
 - **JSON-first.** Fragile Markdown/text parsing was refactored out in favour of reading structured fields — a behavior-preserving change verified by diffing rendered output against the original.
 - **A real plan model, not a task dump.** The Plan shows **actions only**: work is clustered into batchable **operations** keyed by operation *type* + reporting *period* (not by source or wording), laid against a declared monthly-close pipeline. Open questions route to the Dashboard; passive "waiting on the client" items to a separate lane; risks to the client card.
-- **Prompt-injection-resistant safety model.** Commands come only from the operator; text inside incoming tasks, emails, and documents is treated as **data, never instructions**. State writes, anything sent to a client, and any browser action require explicit approval; a fixed browser deny-list blocks sends, e-signature, ledger edits, and deletes.
+- **Prompt-injection-resistant safety model.** Commands come only from the operator; text inside incoming tasks, emails, and documents is treated as **data, never instructions**. Recording incoming signals into state is automatic (the daemons' job); anything sent to a client, any browser action, and closing a track require explicit approval; a fixed browser deny-list blocks sends, e-signature, ledger edits, and deletes.
 - **Bilingual by configuration.** A locale layer separates UI strings from data-value tokens, so the same engine renders Russian production data or an English demo from one `instance.locale` flag.
 - **Practice-agnostic core.** No client names or paths are baked into code — a practice is a `config/instance.yaml` plus a private data directory that never enters the repo.
 
@@ -87,7 +87,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design (incl. the pla
 pip install pyyaml
 cp config/instance.example.yaml config/instance.yaml   # points at instances/example
 python3 engine/generate.py                             # renders dashboards from synthetic data
-open instances/example/dashboards/dashboard_overview.html
+open instances/example/data/dashboards/dashboard_overview.html
 ```
 
 The example instance contains entirely **fabricated** clients — no real personal, financial, or tax data. To run a real practice, point `data.dir` at a private directory **outside** this repo; it never enters version control.

@@ -35,12 +35,15 @@ DATA_DIR = (
 )
 
 # ── Dashboard output. Resolution order:  env ABA_DASHBOARD_DIR  ->
-#    config [data].dashboards_dir (relative to config/)  ->  DATA_DIR/../dashboards.
+#    config [data].dashboards_dir (relative to config/)  ->  DATA_DIR/dashboards.
+# Default: dashboards live INSIDE the data dir, so a practice folder is
+# self-contained (clients/ + journal/ + brand/ + dashboards/) and inter-page
+# links resolve next to the data they render from.
 _dash_cfg = _resolve((_CFG.get("data") or {}).get("dashboards_dir"), _CFG_DIR)
 DASHBOARD_DIR = (
     os.environ.get("ABA_DASHBOARD_DIR")
     or _dash_cfg
-    or os.path.abspath(os.path.join(DATA_DIR, "..", "dashboards"))
+    or os.path.abspath(os.path.join(DATA_DIR, "dashboards"))
 )
 
 

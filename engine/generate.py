@@ -85,7 +85,7 @@ from _loaders import (
 from _health import calculate_health
 from _strings import t, WEEKDAYS, MONTHS_GEN
 # _client_dashboard_v2 is imported inside the main loop (cycles via _overview_v2)
-from _overview_shared import render_header, render_morning_digest
+from _overview_shared import render_header
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))

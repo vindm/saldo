@@ -17,7 +17,7 @@ Requirements: Python 3.10+, `pip install pyyaml`.
 git clone <repo> ai-bookkeeping-assistant && cd ai-bookkeeping-assistant
 cp config/instance.example.yaml config/instance.yaml
 python3 engine/generate.py          # renders the SYNTHETIC example instance
-open instances/example/dashboards/dashboard_overview.html
+open instances/example/data/dashboards/dashboard_overview.html
 ```
 
 Then point it at your own (private) data directory and fill in brand/locale — see **§C Configuration** and **§D Data layout**. Your real data lives **outside the repo** (`.gitignore` blocks `instances/*/data`, secrets, `*.html`).
@@ -82,7 +82,7 @@ connectors: { ... }             # enable later, in Step 4
 ABA_DATA_DIR="$HOME/ABA-data" ABA_LOCALE=ru python3 engine/generate.py
 ```
 
-Open `<DATA_DIR>/../dashboards/dashboard_overview.html`. Then confirm parity against the old dashboards:
+Open `<DATA_DIR>/dashboards/dashboard_overview.html`. Then confirm parity against the old dashboards:
 
 - **Client count** matches the old roster (e.g. 16/16).
 - **Health colours** match (run `python3 engine/state_lint.py` — must exit clean).

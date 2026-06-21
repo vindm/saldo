@@ -1,14 +1,12 @@
 """_overview_shared.py — shared functions for the overview page.
 
-Contains two functions reused by render_overview_v2():
 - render_header() — header with date, time, and daemon status dots
-- render_morning_digest() — expanded "Morning digest" block with top news/mail/updates
-
-Extracted from _overview_legacy.py during the legacy cleanup 2026-05-17.
+- render_mail_block() / render_news_block() — external-signal feeds, rendered with
+  the shared event component (engine/_components.py), same as the track/decision lists.
 """
 from _helpers import _esc, _esca, _format_date_ru, _snapshot_time
 from _loaders import _DAEMON_DIAG
-from _strings import t
+from _strings import t, tp
 from _icons import icon
 
 
@@ -57,91 +55,38 @@ def render_header():
     )
 
 
-def render_morning_digest(daemon_news, daemon_mail, daemon_updates):
-    news_list = (daemon_news or {}).get('list', []) or []
-    sev_order = {'high': 0, 'medium': 1, 'low': 2}
-    news_sorted = sorted(news_list, key=lambda x: sev_order.get(x.get('severity'), 9))
-    top_news = news_sorted[:3]
-    if top_news:
-        news_html = ''.join(
-            f'<div class="digest-item">'
-            f'<strong>{_esc(n.get("title",""))}</strong>'
-            f'<div class="meta">{_esc(n.get("source",""))}'
-            + (f' · <a href="{_esca(n.get("url"))}" target="_blank">{t("read")}</a>' if n.get('url') else '')
-            + '</div></div>'
-            for n in top_news
-        )
-    else:
-        news_html = '<div class="muted">' + t('No significant news') + '</div>'
+def render_mail_block(daemon_mail, limit=5):
+    """Mail updates as the shared event list (same component as track/decision lists)."""
+    from _components import event_row, render_event_section, render_empty_section
+    title = tp('📬 Mail updates', '📬 Обновления в почте')
+    items = [m for m in ((daemon_mail or {}).get('list') or []) if m.get('severity') in ('high', 'medium')]
+    if not items:
+        return render_empty_section(title, t('No mail needs a reply'))
+    rows = []
+    for m in items[:limit * 2]:
+        head = _esc(m.get('subject') or t('(no subject)'))
+        sub = t('from') + ' ' + (m.get('from_name') or '')
+        if m.get('client'):
+            sub += ' · ' + t('client') + ' ' + m.get('client')
+        rows.append(event_row(m.get('from_name') or m.get('client') or 'mail',
+                              head, _esc(sub), tp('mail', 'почта'), None, ''))
+    return render_event_section(title, rows, count=len(items), show=limit)
 
-    mail_list = (daemon_mail or {}).get('list', []) or []
-    mail_filtered = [m for m in mail_list if m.get('severity') in ('high', 'medium')]
-    top_mail = mail_filtered[:3]
-    if top_mail:
-        mail_html = ''.join(
-            f'<div class="digest-item">'
-            f'<strong>{_esc(m.get("subject") or t("(no subject)"))}</strong>'
-            f'<div class="meta">{t("from")} {_esc(m.get("from_name",""))}'
-            + (f' · {t("client")} {_esc(m.get("client"))}' if m.get('client') else '')
-            + '</div></div>'
-            for m in top_mail
-        )
-    else:
-        mail_html = '<div class="muted">' + t('No mail needs a reply') + '</div>'
 
-    updates = (daemon_updates or {}).get('list', []) or []
-    applied = [u for u in updates if u.get('category') == 'applied']
-    needs_manual = [u for u in updates if u.get('category') == 'needs_manual']
-    updates_rows = ''
-    if applied:
-        updates_rows = ''.join(
-            f'<div class="digest-item">{_esc(u.get("title") or u.get("body",""))}'
-            + (f'<div class="meta">{_esc(u.get("label",""))}</div>' if u.get('label') else '')
-            + '</div>'
-            for u in applied
-        )
-    if needs_manual:
-        updates_rows += (
-            f'<div class="digest-item" style="color:var(--accent-yellow)">'
-            f'{len(needs_manual)} {t("updates need my decision")} '
-            f'(see _diary/inbox/updates_*.md)</div>'
-        )
-    if not updates_rows:
-        updates_rows = '<div class="muted">' + t('Nothing was updated') + '</div>'
-
-    # Tie the internal state-change log to the updates block: a small link under
-    # it that opens the full Changelog page. Includes a 7-day count when there is
-    # recent activity. Best-effort — never breaks the digest.
-    try:
-        import state_ops
-        import datetime as _dt
-        _recs = state_ops.audit_read()
-        _cut = _dt.datetime.now().astimezone() - _dt.timedelta(days=7)
-
-        def _recent(r):
-            try:
-                return _dt.datetime.fromisoformat(r.get('ts', '')) >= _cut
-            except (TypeError, ValueError):
-                return False
-        _nrecent = len([r for r in _recs if _recent(r)])
-    except Exception:
-        _nrecent = 0
-    _cnt = (' (' + str(_nrecent) + ')') if _nrecent else ''
-    updates_rows += (
-        '<div class="digest-more" style="margin-top:8px;padding-top:6px;'
-        'border-top:1px solid var(--border);font-size:13px">'
-        '<a href="changelog.html">' + t('View all state logs') + _cnt + ' →</a></div>'
-    )
-
-    return (
-        '<details class="digest" open>'
-        '<summary>' + t('Morning digest') + '</summary>'
-        '<div class="digest-content">'
-        f'<div class="digest-block"><h4>{t("Top news")}</h4>{news_html}</div>'
-        f'<div class="digest-block"><h4>{t("Top mail")}</h4>{mail_html}</div>'
-        f'<div class="digest-block"><h4>{t("Overnight auto-updates")}</h4>{updates_rows}</div>'
-        '</div></details>'
-    )
+def render_news_block(daemon_news, limit=5):
+    """Accounting news as the shared event list."""
+    from _components import event_row, render_event_section, render_empty_section
+    title = tp('📰 Accounting news', '📰 Новости бухгалтерии')
+    sev = {'high': 0, 'medium': 1, 'low': 2}
+    items = sorted(((daemon_news or {}).get('list') or []), key=lambda x: sev.get(x.get('severity'), 9))
+    if not items:
+        return render_empty_section(title, t('No significant news'))
+    rows = []
+    for n in items[:limit * 2]:
+        head = _esc(n.get('title') or '')
+        rows.append(event_row(n.get('source') or 'news', head, _esc(n.get('source') or ''),
+                              tp('news', 'новости'), None, ''))
+    return render_event_section(title, rows, count=len(items), show=limit)
 
 
 # Canonical set of "closed" track statuses (kept in sync with _aggregator.py).

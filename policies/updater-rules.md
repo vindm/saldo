@@ -1,5 +1,19 @@
 # Rules for the `updater` daemon
 
+> ⚠️ **SUPERSEDED (2026-06-21).** This file describes the OLD `updater` daemon, which
+> *proposed* JSON patches and applied almost nothing without approval. That daemon was
+> **deprecated 2026-05-24**; the propose-don't-apply, approval-per-write model it
+> documents is **no longer how Saldo works** and was a root cause of "daemons don't
+> update state". The current model: daemons keep state current **inline** via
+> `connectors/mm_update/SKILL.md` (recording incoming signals needs **no approval**),
+> and a track is **never closed by a daemon** — on a confirmation the daemon updates
+> the track (history + a "confirm close" next_action) and surfaces it in the overview
+> "Recently updated" zone; the operator makes the final close decision from the card.
+> Approval is reserved for outbound/irreversible actions only — see
+> `policies/safety-rules.md §5a` and `config/instance.yaml → safety`.
+> Kept for historical context (the T1–T7 proposal taxonomy); do **not** follow its
+> "does NOT apply" stance.
+
 > The specification of the updater daemon's logic (07:00 Moscow time daily, after `finkoper` and the collectors `news`/`email`, before `analytic` and `dashboard`).
 > This file is the source of truth for the updater's logic. When adding a new rule: state the trigger, source, proposal format, severity.
 >

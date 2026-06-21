@@ -7,7 +7,7 @@ that describes how to update the knowledge state about a client based on a new s
 > - Signals can come from anywhere (daemons, chat with me, discussion)
 > - Any signal → update the model **in real time**, do not accumulate
 > - **Daemons are self-sufficient**: the updater and the analytic are deprecated (`connectors/{updater,analytic}/DEPRECATED.md`)
-> - **Source of truth = `state/*.json`** (migration of all 14 clients completed 2026-05-25, see memory `state_migration_complete`)
+> - **Source of truth = `state/*.json`** (migration onto state completed 2026-05-25)
 > - This skill is the common contract by which everyone operates
 
 ## Storages (where to write what) — after the 2026-05-25 migration
@@ -63,7 +63,7 @@ The tag is a free-form `channel:detail` string. The examples below are illustrat
 
 News is a **system-wide signal**, not tied to a single client. The algorithm for the agent:
 1. Read the news, extract the gist (what changed, from what date, to whom it applies)
-2. **Go through ALL clients** from `state_ops.CLIENT_FOLDERS` (`engine/state_ops.py` — the only source of the list; as of 2026-06-07 this is 16: 7 team + 9 direct) and determine those affected by reading:
+2. **Go through ALL clients** from `state_ops.CLIENT_FOLDERS` (`engine/state_ops.py` — the only source of the list; never hardcode the count) and determine those affected by reading:
    - `state/regime.json` — taxation regime (USN/Patent/AUSN/OSNO)
    - `state/identity.json` — OKVED (if the news is about specific activity types)
    - `state/financials.json` — turnover (if the news is about limits)
@@ -85,7 +85,7 @@ News is a **system-wide signal**, not tied to a single client. The algorithm for
 
 - **News → a specific client**: creates a track for those affected
 - **TG → confirmation on a news track**: the client themselves asks about the new law → add a history event to the news track
-- **email → confirmation from the tax authority (FTS)**: the letter confirms the application → moves the track to done
+- **email → confirmation from the tax authority (FTS)**: the letter confirms the application → add a history event and refresh `next_action` to «Подтвердить закрытие — заявление принято ФНС»; the operator closes the track from the card (the daemon never closes)
 
 ## Confidence (level of certainty — determines the action)
 
@@ -115,11 +115,15 @@ News is a **system-wide signal**, not tied to a single client. The algorithm for
 - **High:** add_history_event + if needed `_tracks.update_status` (active → awaiting, awaiting → done)
 - **Medium:** add an event marked `🔧 presumed`
 
-### D. Closing a thread
-- **Where:** `state/tasks.json → tasks[<id>]` via `_tracks.update_status(client_id, track_id, 'done', reason='...')` + a history event is added automatically
-- **Examples:** the payment went through, the tax return was accepted, the answer was given and confirmed
-- **High:** immediately `update_status('done')`
-- **Medium:** leave it `active`, add an event "🔧 Possibly closed" via `add_history_event`
+### D. Closing a thread — the daemon NEVER closes; it updates, the operator decides (2026-06-21)
+
+Closing ends a thread of real client work, so the **close is always the operator's decision**, made from the track card. A daemon's job on a confirmation is to **update the track so the next action reflects the new state** — not to close it.
+
+- **A confirmation arrives** (client says "paid"/"done", or an objective proof lands: a statement/Z-report/received document/FTS acceptance) → `_tracks.add_history_event(cid, tid, '<what happened>', source='<channel:detail>', auto=True)` **and** refresh `next_action` so it points at the decision, e.g. «Подтвердить закрытие — клиент сообщил об оплате (TG, 20.06); сверить выписку». Do **NOT** call `update_status('done')`. The track then appears in the overview **«🔄 Последние обновлённые треки»** zone (and, once she closes it, in **«✅ Последние закрытые треки»**); the operator opens the card, sees the updated history + hypothesis + next action, and closes it herself if she agrees.
+- **A promise** ("will send / will do") → `add_history_event`, leave `next_action` as the awaited step. Not a confirmation.
+- **Movement without a close** (partial progress, a reply) → `add_history_event`, refresh `next_action` to the new step.
+
+> Why: a client's claim can be premature ("paid" before the money lands), and even objective proof deserves the accountant's eyes before a thread is ended. The daemon keeps the model current and puts the decision in front of her with full context on the card; she makes the call. Every update is visible in the changelog and the overnight zone.
 
 ### E. Risk, red flag
 - **Where:** `state/risks.json` — add an entry to `risks.red[]` or `risks.yellow[]`. Entry structure: `{id, title, since, category, resolved: false, source}`. Write via `state_ops.state_write(client_id, 'risks.json', data, ctx='new_risk')`.
@@ -213,11 +217,15 @@ Each REAL change → append into `journal/operator_decisions.md`. **Do NOT log n
 
 6. **Audit-log in `journal/operator_decisions.md`** — as a single entry "what changed and why" (not line by line for each micro-action).
 
+7. **Compose the "Today summary" (with the FULL picture).** After applying, write a short Russian brief to `journal/brief_<YYYY-MM-DD>.md` — 2–4 lines synthesising the WHOLE dashboard the way a smart assistant would: what is overdue / due today, the nearest deadlines, what needs the operator's decision, what notably changed overnight, open questions and red risks worth flagging. The overview renders this file as «🧭 Сводка на сегодня»; if it is absent/stale the engine falls back to a deterministic summary (`engine/_brief.py:brief_lead_html`). Plain text + `**bold**` is fine. This is where the real "understanding" lives — the engine only formats.
+
+7. **Morning push to the operator (proactive).** After applying, if anything material changed overnight, post **one short Russian message** to the operator in the Cowork chat naming the updated tracks. Keep it to two lines, e.g.: «🌙 За ночь обновлено: Ким — клиент сообщил об оплате 30 000 ₽, нужно подтвердить закрытие. · Климова — пришёл ответ ФНС по доходу.» This makes daemon work *visible* — she should not have to come looking; the same tracks also appear in the overview «🔄 Последние обновлённые треки» zone (grouped by day) for the morning focus. If nothing material changed, send nothing (no-op runs stay silent, like the journal).
+
 ### Important interpretation rules
 
 - **One signal ≠ one track by default.** It may touch 0, 1, or several related tracks. The decision is based on understanding.
 - **Context matters more than keywords.** The message "Artyom, payment order is up for signing" from the operator is not about closing Client A's "1% over 148K" track, even if the word "payment order" matched.
-- **Closing — only on explicit confirmation.** "The client wrote paid" = confirmation that the payment was made → close. "The client wrote I'll send it" = still a promise → add an event but do not close.
+- **Closing — operator only (see §D).** The daemon NEVER closes. On any confirmation (a claim like "paid"/"done" OR objective proof) → `add_history_event` + refresh `next_action` to «Подтвердить закрытие …»; never call `update_status('done')`. "I'll send it" = a promise → add an event only. The operator closes from the track card.
 - **When uncertain — mark 🔧** in the track's context (for review with the operator), do not apply an automatic close.
 
 ### When the skill is invoked

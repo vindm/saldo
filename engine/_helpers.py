@@ -156,6 +156,109 @@ def _format_date_ru(d):
     return f"{d.day} {MONTHS_GEN[d.month-1]}, {WEEKDAYS_FULL[d.weekday()]}"
 
 
+_AVATAR_PALETTE = [
+    '#E6F1FB:#185FA5', '#FBE9E6:#A53A18', '#EAF3DE:#3B5E2A', '#F3E6FB:#6B2AA5',
+    '#FBF3D9:#8A6730', '#E0F3F1:#1A6E64', '#FBE6F0:#A52A6B', '#EDEBFE:#534AB7',
+    '#F0EBE3:#6B5A3A', '#E6F7FB:#176B85', '#F1F0DC:#5F6B1A', '#FBEAD9:#A55A18',
+]
+
+_SRC_LABELS = {
+    'tg': 'TG', 'telegram': 'TG', 'email': 'почта', 'mail': 'почта',
+    'finkoper': 'Финкопер', 'news': 'новости', 'tbank': 'ТБанк',
+    'alfa': 'Альфа', 'alfabank': 'Альфа', 'vtb': 'ВТБ', 'ofd': 'ОФД',
+    'operator': 'Ирина', 'cowork': 'Ирина', 'owner': 'Ирина',
+    'joint': 'сессия', 'session': 'сессия', '1c': '1С', '1с': '1С',
+}
+
+
+def client_avatar(name):
+    """(initials, inline-style) for a client avatar — one shared implementation
+    used by every event row (track lists, decisions, …)."""
+    n = (name or '').strip()
+    for p in ('SP ', 'ИП '):
+        if n.startswith(p):
+            n = n[len(p):]
+            break
+    words = [w for w in n.split() if w]
+    if not words:
+        ini = '—'
+    elif len(words) == 1:
+        ini = words[0][:2].upper()
+    else:
+        ini = (words[0][0] + words[1][0]).upper()
+    i = (sum(ord(ch) for ch in (name or 'x')) * 31 + len(name or '')) % len(_AVATAR_PALETTE)
+    bg, fg = _AVATAR_PALETTE[i].split(':')
+    return ini, ' style="background:' + bg + ';color:' + fg + '"'
+
+
+def source_label(source):
+    """Short Russian-facing label for a source channel ('tg:@x' -> 'TG')."""
+    ch = str(source or '').split(':', 1)[0].strip().lower()
+    return _SRC_LABELS.get(ch, ch)
+
+
+def _plural_ru(n, one, few, many):
+    """Russian plural: 1 час / 2 часа / 5 часов."""
+    n = abs(int(n))
+    if 11 <= n % 100 <= 14:
+        return many
+    r = n % 10
+    if r == 1:
+        return one
+    if 2 <= r <= 4:
+        return few
+    return many
+
+
+def relative_when(s, today=None):
+    """Relative, Russian-facing 'when' for a history event timestamp.
+
+    Hours/minutes when the value carries a time ('3 часа назад'); else day-based
+    ('сегодня' / 'вчера' / 'N дней назад'); older than a week falls back to an
+    absolute human date ('20 июня'). `s` is an ISO ts (preferred) or date string.
+    """
+    from datetime import datetime, date as _date
+    from _strings import MONTHS_GEN
+    s = str(s or '')
+    if len(s) < 10:
+        return s
+    if today is None:
+        today = _date.today()
+    if 'T' in s:
+        try:
+            dt = datetime.fromisoformat(s)
+            now = datetime.now().astimezone()
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=now.tzinfo)
+            secs = (now - dt).total_seconds()
+            if secs >= 0:
+                if secs < 60:
+                    return 'только что'
+                mins = int(secs // 60)
+                if mins < 60:
+                    return '{} {} назад'.format(mins, _plural_ru(mins, 'минуту', 'минуты', 'минут'))
+                hrs = int(secs // 3600)
+                if hrs < 24:
+                    return '{} {} назад'.format(hrs, _plural_ru(hrs, 'час', 'часа', 'часов'))
+        except (ValueError, TypeError):
+            pass
+    try:
+        d = _date(int(s[0:4]), int(s[5:7]), int(s[8:10]))
+    except (ValueError, TypeError):
+        return s
+    delta = (today - d).days
+    if delta <= 0:
+        return 'сегодня'
+    if delta == 1:
+        return 'вчера'
+    if delta < 7:
+        return '{} {} назад'.format(delta, _plural_ru(delta, 'день', 'дня', 'дней'))
+    try:
+        return '{} {}'.format(d.day, MONTHS_GEN[d.month - 1])
+    except Exception:
+        return s
+
+
 def _snapshot_time():
     """HH:MM from snapshot_meta.json or now()."""
     import generate
