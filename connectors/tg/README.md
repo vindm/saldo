@@ -9,7 +9,7 @@ A source of tasks for the direct circuit (track="direct") in the dashboard.
 - Full (the last 4 months) — if the client is being read for the first time
 - Incremental (since last_seen) — if state already exists
 
-It can work for one client, for a list, or for all 9. This same skill is called by the morning daemon.
+It can work for one client, for a list, or for all direct. This same skill is called by the morning daemon.
 
 ## Files
 
@@ -19,7 +19,7 @@ It can work for one client, for a list, or for all 9. This same skill is called 
 
 ## State
 
-`journal/tg_state.json` — last_message_id, last_read_at, unread_count for each of the 9 clients.
+`journal/tg_state.json` — last_message_id, last_read_at, unread_count for each direct client.
 
 ## Output
 

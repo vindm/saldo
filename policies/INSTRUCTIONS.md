@@ -206,7 +206,7 @@ Hybrid reading architecture (since 2026-05-13):
   - 🔴 "ON FIRE" — overdue/today/tomorrow tasks + today's/tomorrow's calendar + high anomalies + high update conflicts
   - 🟡 "THIS WEEK" — tasks with a deadline +2…+7 days + the week's calendar + medium anomalies
   - 💬 "AWAITING A REPLY" — Finkoper chats with unread/mentions + high/medium mail + overdue requests from the log
-- A grid of 6 client cards with a health color (from `calculate_health`), counters (tasks/new/anomalies/awaiting) and the nearest deadline (the minimum across tasks and the calendar, horizon 60 days)
+- A grid of all clients cards with a health color (from `calculate_health`), counters (tasks/new/anomalies/awaiting) and the nearest deadline (the minimum across tasks and the calendar, horizon 60 days)
 - A collapsed "Morning digest": the top 3 news + the top 3 high/medium letters + auto-updates applied (noting the number that needs_manual)
 
 The old versions of the renderers are kept in `generate.py` under the names `gen_overview_legacy()` (the old overview) and `gen_html_legacy()` (the old client dashboard in the X2 style) — for a rollback you can swap the calls in the main loop from `render_new_overview()` / `render_new_client_dashboard(c, ...)` back to the legacy functions.

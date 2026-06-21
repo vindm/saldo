@@ -21,7 +21,7 @@
 |---|---|---|
 | Tax Code changes / government decrees | nalog.gov.ru, consultant.ru, garant.ru | all clients |
 | Letters from the tax authority (FTS) / Ministry of Finance / social fund (SFR) | nalog.gov.ru, minfin.gov.ru | all |
-| USN (income 6%) | klerk.ru, buh.ru, glavbukh.ru | all 6 clients |
+| USN (income 6%) | klerk.ru, buh.ru, glavbukh.ru | all all clients |
 | Patent (patent regime) | klerk.ru, buh.ru | Client A, Client A (when there is a patent) |
 | SP insurance contributions | klerk.ru, buh.ru, nalog.gov.ru | all |
 | Single tax account (ENS) / notifications | klerk.ru, buh.ru | all |

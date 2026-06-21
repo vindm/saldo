@@ -40,7 +40,7 @@ Start-ScheduledTask -TaskName Cowork_TG_Sync_Daily
 - `launchers/run_full_scan.bat` — a manual full scan (with the window open)
 - `secrets/tg_api.json` — api_id, api_hash, phone (SECRET)
 - `secrets/operator_session.session` — Telethon session (SECRET)
-- `journal/tg_state.json` — last_message_id for each of the 9 clients
+- `journal/tg_state.json` — last_message_id for each direct client
 - `journal/inbox/tg_<date>.md` — message snapshots
 - `journal/daemon_logs/tg_sync_<date>.log` — daemon logs
 

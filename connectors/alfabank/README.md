@@ -30,11 +30,11 @@ A single operator login sees several SPs. Before reading client data you MUST co
 
 | Client (`client_id`) | Alfa account | Comment |
 |---|---|---|
-| **SP Client A** (`client_a`) | `40802810829080004325`, BIC 042202824 (Nizhny Novgorod) | main bank account |
-| **SP Client A** (`client_b`) | `40802810402580006218`, BIC ❓ (branch 0258) | balance 0; clarify BIC from Requisites |
-| **SP Client A** (`client_c`) | `40802810102580006217`, BIC ❓ (branch 0258) | clarify BIC from Requisites |
+| **SP Client A** (`client_a`) | `<account — from state/accounts.json>`, BIC <from state> (Nizhny Novgorod) | main bank account |
+| **SP Client A** (`client_b`) | `<account — from state/accounts.json>`, BIC ❓  | balance 0; clarify BIC from Requisites |
+| **SP Client A** (`client_c`) | `<account — from state/accounts.json>`, BIC ❓  | clarify BIC from Requisites |
 
-⚠️ The switcher shows NOT only our 3 (verified 2026-06-06): besides Client A (`client_a`)/Client A (`client_b`)/Client A (`client_c`), other SPs on T-Bank/Tochka are also visible (Client A, Client A, Client A, Client A, Client A). Ours — only these 3 on Alfa (accounts ··6218/··6217 and Client A). You MUST reconcile the active company by INN before reading (multi-company risk).
+⚠️ The switcher shows NOT only our 3 (verified 2026-06-06): besides Client A (`client_a`)/Client A (`client_b`)/Client A (`client_c`), other SPs on T-Bank/Tochka are also visible (Client A, Client A, Client A, Client A, Client A). Ours — only these 3 on Alfa (accounts ··XXXX/··XXXX and Client A). You MUST reconcile the active company by INN before reading (multi-company risk).
 
 ## UI map (verified live 2026-06-06)
 

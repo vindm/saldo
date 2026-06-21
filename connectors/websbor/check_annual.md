@@ -8,7 +8,7 @@ Annual check of each SP's obligation to file statistical reporting on the statis
 
 | Parameter | Type | Default |
 |---|---|---|
-| `clients` | list[string] | all 6 team SPs from `clients_data.json` |
+| `clients` | list[string] | all the team SPs from `clients_data.json` |
 | `year` | int | current year |
 | `output_folder` | string | `registries/` |
 

@@ -36,8 +36,8 @@ For each news item:
 
 ### Step 4. Assessing applicability to clients
 
-For each news item — note which of the 6 clients it affects:
-- By regime (USN → all 6; patent regime → Client A, Client A; OSNO → none)
+For each news item — note which of all clients it affects:
+- By regime (USN → all; patent regime → Client A, Client A; OSNO → none)
 - By OKVED (Client A 49.32 taxi, Client A 68.20 rental, Client A 49.41 freight, etc.)
 - By presence of a cash register (54-FZ news → Client A, Client A)
 - If the news applies to everyone — mark "all clients"
