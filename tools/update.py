@@ -57,10 +57,48 @@ def main():
     py = sys.executable or "python"
     say("=== Updating Saldo ===", "=== Обновление Saldo ===")
 
-    # 1. Pull the latest engine (best-effort: offline -> keep working with what we have).
+    # 1. Pull the latest engine. Non-interactive (no y/n prompts) and self-healing:
+    #    a normal fast-forward first; if that fails (e.g. Windows could not delete a
+    #    restructured folder, or local drift), pin hard to the upstream and drop stray
+    #    untracked files. Safe: data lives OUTSIDE the repo and config/instance.yaml +
+    #    *.html are git-ignored, so `clean -fd` (no -x) never removes them.
     if "--no-pull" not in args:
-        if not run(["git", "-C", REPO, "pull", "--ff-only"],
-                   "Downloading the latest version", "Скачиваю свежую версию"):
+        gitenv = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASK_YESNO="false")
+
+        def git(*a):
+            try:
+                # stdin=DEVNULL: if Git ever asks "Should I try again? (y/n)" (Windows
+                # could-not-delete retry), it gets EOF and declines instead of looping.
+                return subprocess.run(["git", "-C", REPO, *a], cwd=REPO, env=gitenv,
+                                      stdin=subprocess.DEVNULL).returncode == 0
+            except Exception as e:
+                print("  " + str(e), flush=True)
+                return False
+
+        def rev(ref):
+            try:
+                r = subprocess.run(["git", "-C", REPO, "rev-parse", ref], cwd=REPO,
+                                   env=gitenv, stdin=subprocess.DEVNULL,
+                                   capture_output=True, text=True)
+                return r.stdout.strip() if r.returncode == 0 else None
+            except Exception:
+                return None
+
+        def up_to_date():
+            h = rev("HEAD")
+            return h is not None and h == rev("@{u}")
+
+        say("- Downloading the latest version ...", "- Скачиваю свежую версию ...")
+        git("pull", "--ff-only")
+        if not up_to_date():
+            say("  (normal update did not apply - repairing to the latest version)",
+                "  (обычное обновление не прошло - чиню до последней версии)")
+            git("fetch", "origin")
+            git("reset", "--hard", "@{u}")
+            git("clean", "-fd")  # leftover Windows-locked folders are harmless; ignore failure
+        # Success is judged by HEAD matching upstream, NOT by exit codes: on Windows a
+        # locked folder can fail to delete while HEAD still advanced correctly.
+        if not up_to_date():
             say("  (could not update from GitHub - continuing with the current version)",
                 "  (не получилось обновиться с GitHub - продолжаю на текущей версии)")
 

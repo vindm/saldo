@@ -56,3 +56,38 @@ result (and screenshot it for Dima if anything looks off).
   `--no-pause`.
 - **macOS/Linux**: the same `python3 tools/update.py` works; only the desktop
   shortcut is Windows-specific.
+
+
+## Common problem: "Deletion of directory '...' failed. Should I try again? (y/n)"
+
+This happens with a **manual** `git pull` in Git Bash when Windows refuses to
+delete a folder the update removed or restructured (e.g. `workflows/checklists`
+moved under `jurisdictions/`). The folder is held open by something:
+
+- **OneDrive** — the repo is under `Documents`, which is usually OneDrive-synced.
+  This is the most common cause.
+- An open **Explorer** window or **editor** sitting inside the Saldo folder.
+
+Fix it once:
+
+1. In the stuck window press `n` then Enter (or Ctrl+C) to stop the loop.
+2. Close any Explorer/editor inside the Saldo folder; pause OneDrive if Documents
+   is synced.
+3. Reconcile deterministically (safe — data is outside the repo, instance.yaml is
+   git-ignored):
+   ```
+   git reset --hard origin/main
+   git clean -fd
+   ```
+
+**The desktop icon avoids this loop.** `tools/update.py` runs Git non-interactively
+(`stdin` closed, `GIT_TERMINAL_PROMPT=0`) and, if a normal fast-forward fails,
+self-heals with `fetch` + `reset --hard @{u}` + `clean -fd` (which never removes
+git-ignored files like `config/instance.yaml` or the dashboards). So it won't sit
+on a y/n prompt the way a manual `git pull` does.
+
+**Durable fix (recommended): keep the repo out of OneDrive.** Move the clone to a
+plain local path, e.g. `C:\Saldo\Saldo-engine`, then re-run
+`tools\windows\install_shortcut.bat` from the new location to refresh the desktop
+icon. A git repo under an actively-syncing OneDrive folder will keep causing
+file-lock failures during updates; a non-synced path eliminates the whole class.
