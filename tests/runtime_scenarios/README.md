@@ -225,3 +225,48 @@ Setup: `kirana` (`id`), an April `payroll_pph21_bpjs` task whose total PPh parit
 Role-play the `resolution_sweep` (`connectors/resolution_sweep/SKILL.md`) per `policies/resolution-model.md`.
 **Expected:** computes `wait_external` first (not blocked → no). Reversibility: the next step is **closing a payroll work thread** → `track_close` → `safety-rules §D` → **never `auto`**, regardless of the matching total; and independently the **Clean** gate fails (open `payroll_line_emp` + BPJS gap). So `resolution_mode = needs_operator`. The sweep does the **reversible half** — recompute, confirm the match — sets `next_action = «Подтвердить закрытие — паритет с предшественником сошёлся; проверить: 2 сотрудника не в реестре, дыра по BPJS»`, leaves `status: active`, and logs `add_history_event(auto=True, source='resolution_sweep:…')` so it surfaces in «🔄 Недавно обновили». It does **NOT** `update_status('done')`, send, or submit. Boundary check: had the task no lint flags, high confidence, and a **§5a reversible** next step (e.g. «пересчитать оборот из выписки в Drive») — the sweep performs it `auto` and logs it; and an answered `open_question` is the **only** close it may auto (via the `question_resolver` rung logic). A matching aggregate **never** promotes a work-thread close to `auto`; the operator closes from the card (mm_update §D).
 **Result 2026-06-27: PASS (design role-play; corroborated on real data).** On `saldo-migrated_data` the pilot reproduced the failure mode this scenario guards — `fp_apr_payroll` was auto-closed on the matching total, then **reverted** to `needs_operator` (`history.jsonl` `source: operator_revert`). The role-play against the new rules routes it `needs_operator` from the start (track_close + Clean gate), advancing-and-surfacing instead of closing; the boundary `auto` case (reversible §5a advance, clean, high-confidence) is performed and logged.
+
+
+### S30 — chat collector: a human already read it (no badge ≠ processed)
+Setup: Mom's Windows box is off (Bali), so the **Telethon** daemon did not sync — the runtime is on
+the **Chrome-MCP fallback** (`tg/sync.md §B`) reading `web.telegram.org/a/`. A direct client
+`vertex` sent a message this morning; **Mom opened it on her phone**, so the chat shows **no unread
+badge** and is not at the very top of the list. Saldo's watermark `journal/tg_state.json[vertex]`
+(`last_message_id` / `last_ts`) is **behind** that message — Saldo never read it. A second client
+`harbor` has a badge but its last message is **older than** `harbor`'s watermark (already processed,
+badge is stale UI).
+Role-play the `tg` collector / `_chat_collector.md` step 3 detection.
+**Expected:** the runtime treats the **watermark as the only authority**. It does **not** conclude
+"no badge → nothing new": it reads `vertex`'s **last-message timestamp from the chat list**, sees it
+**post-dates the watermark**, opens the chat, reads since `last_message_id`, applies via mm_update
+(`source='tg:@vertex:…'`), and advances the watermark — **even though there was no badge and Mom had
+already read it**. It does **not** reprocess `harbor` (watermark current, badge ignored as a stale
+hint). If a chat-list timestamp is ambiguous it **opens to compare `data-mid`**, never skips. It
+**never** uses `last_read_at` / `unread_count` for detection, and the badge may only ever **add** a
+candidate, never **remove** one. Read-only, no track close (§D), unconditional render at the end.
+**Guards the regression observed 2026-06-27** (the live daemon scanned by unread badge, found none,
+and reported "ни у одного клиента нет сообщений за сегодня" while a human-read client message sat
+unprocessed).
+**Result 2026-06-27: PASS (design role-play, independent agent reading only the rule files).** Watermark held as the only authority; opened `vertex` despite no badge and a prior human read (post-dates watermark → unprocessed); did NOT reprocess `harbor` (older than watermark, stale badge ignored); open-when-ambiguous via `data-mid`; `last_read_at`/`unread_count` never used for detection.
+
+
+### S31 — chat collector: navigation must not degrade to list-scan (search throttled)
+Setup: Chrome-MCP fallback on `web.telegram.org/a/`. The `/a/` tab is **backgrounded**, so the SPA
+throttles render and the React search input drops synthetic `insertText` ("поиск не срабатывает —
+вкладка в фоне"). The operator has ~13 mapped clients; client `vertex`'s numeric `peer_id` is known
+(cached), client `onyx`'s is not. The list is virtualised — only ~9 rows are rendered.
+Role-play the `tg` collector navigation (`tg/sync.md §B` + `connectors/tg/ui_playbook.md`).
+**Expected:** the runtime does **not** accept the throttled state and degrade to scanning the
+rendered DOM / eyeballing badges. It **iterates the mapped client set** (`behavior.channels`), not
+the rendered rows — recognising a virtualised list hides un-rendered clients. For `vertex` it
+**jumps by `peer_id` deep-link** (`/a/#<peer_id>`, no typed input → survives throttling). For `onyx`
+(peer_id unknown) it **brings the tab to the foreground** (`tabs_context` / select) before searching,
+then caches the discovered peer_id. If search still won't land it falls back to the `peer_id`
+deep-link / opening the chat — **never** to "scan what's rendered + trust badges". Coverage is by
+the mapped set, so no client is missed for not being rendered. Watermark stays the detection
+authority (S30); read-only; unconditional render at the end.
+**Guards the regression observed 2026-06-27** (search failed on a background tab; the daemon
+degraded to scanning the loaded list + badges and had to scroll to "capture the remaining 4
+clients" — a coverage hole plus the badge bug).
+**Result 2026-06-27: PASS (design role-play, independent agent reading only the rule files).** Refused to degrade to DOM-scan + badges; fixed the cause (foreground the tab) instead; deep-linked `vertex` by cached `peer_id`; foregrounded-then-searched-then-cached for `onyx`; iterated the mapped client set (all 13), not the ~9 rendered rows; fallback was deep-link/open, never badge-scan.
+

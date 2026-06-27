@@ -18,6 +18,7 @@ Flags (for testing / advanced use):
     --no-migrate  skip the migrate step (the runtime drives it stepwise)
     --no-generate skip the dashboard rebuild (the runtime regenerates after)
 """
+import glob
 import os
 import subprocess
 import sys
@@ -67,6 +68,24 @@ def main():
     if "--no-pull" not in args:
         gitenv = dict(os.environ, GIT_TERMINAL_PROMPT="0", GIT_ASK_YESNO="false")
 
+        def clear_stale_locks():
+            # A killed updater run (operator closed the window mid-pull) or an AV / sync
+            # process holding a file leaves a *.lock under .git. Every subsequent git that
+            # touches the index (pull / reset) then dies with "Unable to create index.lock".
+            # The repair path below itself needs that lock, so it cannot recover - we must
+            # remove the stale lock FIRST. Safe here: the updater is a single double-click
+            # run with no concurrent git process, so any lock present is orphaned.
+            gd = os.path.join(REPO, ".git")
+            patterns = ["index.lock", "HEAD.lock", "config.lock", "shallow.lock",
+                        os.path.join("refs", "**", "*.lock"),
+                        os.path.join("logs", "**", "*.lock")]
+            for pat in patterns:
+                for lk in glob.glob(os.path.join(gd, pat), recursive=True):
+                    try:
+                        os.remove(lk)
+                    except OSError:
+                        pass
+
         def git(*a):
             try:
                 # stdin=DEVNULL: if Git ever asks "Should I try again? (y/n)" (Windows
@@ -91,11 +110,13 @@ def main():
             return h is not None and h == rev("@{u}")
 
         say("- Downloading the latest version ...", "- Скачиваю свежую версию ...")
+        clear_stale_locks()
         git("pull", "--ff-only")
         if not up_to_date():
             say("  (normal update did not apply - repairing to the latest version)",
                 "  (обычное обновление не прошло - чиню до последней версии)")
             git("fetch", "origin")
+            clear_stale_locks()  # the failed pull may have left a fresh stale lock
             git("reset", "--hard", "@{u}")
             git("clean", "-fd")  # leftover Windows-locked folders are harmless; ignore failure
         # Success is judged by HEAD matching upstream, NOT by exit codes: on Windows a

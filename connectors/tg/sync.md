@@ -84,6 +84,31 @@ When it's needed: the Telethon daemon didn't run (the operator's Windows machine
 
 ⚠️ Telegram holds a WebSocket → the page NEVER reaches document_idle. `find` / `read_page` / `get_page_text` fail with "page still loading". Work ONLY via `javascript_tool` (+ `read_network_requests`).
 
+### Detecting "new since last read" — watermark, NOT unread badges 🔴
+You are scanning the loaded chat list. **Do not decide a client has nothing new because there is no
+unread badge.** The badge clears the moment **any human** opens the chat in Telegram — Mom reading
+it on her phone — but Saldo's read position is `journal/tg_state.json` (`last_message_id` / `last_ts`)
+and is **independent of Telegram's read state**. Absence of a badge ≠ processed by Saldo.
+
+**Iterate the MAPPED CLIENT SET, not the rendered DOM.** The list is virtualised, so a client
+whose row hasn't rendered yet is invisible — scanning "what's on screen" silently drops clients
+(the "догрузить список, чтобы захватить оставшихся" symptom). Walk every client in
+`behavior.channels`, and for each: read the chat's **last-message timestamp** (its `.ListItem`
+last-message + time, or the chat header after a jump) and **process iff it post-dates the client's
+watermark**. If you can't read the timestamp reliably (virtualized list, throttled render, search
+not landing) → **jump to the chat by `peer_id` and compare `data-mid` to `last_message_id`**. The
+badge and chat-list sort order are at most **hints that may add a chat**; they may **never remove
+one**. When in doubt, **open** — never skip. (Shared rule: `connectors/_chat_collector.md` step 3.)
+
+### Navigation — deep-link first, foreground before search 🔴
+**Prefer `jump_to_chat` by `peer_id`** (`/a/#<peer_id>`): it needs no typed input and survives
+render throttling. Use search only to **discover** a peer_id the first time, then cache it and
+deep-link thereafter. **Before any search, the `/a/` tab must be active/foreground** — a
+backgrounded tab throttles the SPA's render and the React input drops the synthetic `insertText`
+("поиск не срабатывает — вкладка в фоне"). If search still won't land, **fall back to the `peer_id`
+deep-link, never to scanning the chat list for badges.** (Playbook: `connectors/tg/ui_playbook.md`
+→ `jump_to_chat`.)
+
 ### Chat search (reliable)
 The React search input ROLLS BACK a synthetic value-set. The working approach is a real beforeinput via execCommand:
 ```js

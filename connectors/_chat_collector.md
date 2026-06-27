@@ -24,9 +24,22 @@ format, quirks) and inherits everything below.
 1. Open the provider's web app; **verify the session is logged in** — else **flag + stop**
    (linking is human-gated: the operator logs in / scans the QR). Reading is `auto` afterward.
 2. Build the chat → client map.
-3. **Detect new without opening:** from the chat list (unread badge + last-message preview +
-   timestamp), select client chats with a last message **newer than that client's watermark**.
-   Open **only** those — most days, few or none.
+3. **Detect new without opening — the watermark is the ONLY authority.** For each mapped client,
+   compare the chat's **last-message timestamp / id from the chat list** against that client's
+   watermark in `journal/<svc>_state.json` (`last_ts` / `last_message_id`). A chat is "new" **iff
+   its last message post-dates the watermark** — i.e. Saldo itself has not read past it. Open every
+   such chat (most days, few or none).
+   🔴 **The unread badge is NOT a "nothing-to-do" signal and must never gate the scan out.** The
+   badge reflects whether a *human* has eyeballed the chat in some Telegram client — **Mom may have
+   opened and read the message on her phone, clearing the badge** — while Saldo's watermark is
+   unchanged and the message is still **unprocessed** (no track, no state written). Absence of a
+   badge ≠ processed by Saldo. The badge / chat-list sort order are at most **hints that may ADD a
+   candidate**; they may **never REMOVE one**. `last_read_at` / `unread_count` in state are
+   Telegram's *read state*, kept for reference only — they are **not** the watermark and must not be
+   used for detection.
+   **When the chat-list timestamp is ambiguous** (same-day, can't tell if it post-dates the
+   watermark, list throttled/virtualized) → **open the chat and compare `data-mid` to
+   `last_message_id`**. When in doubt, **open** — never skip.
 4. Read messages since the watermark. **Resolve the client's jurisdiction first**
    (INSTRUCTIONS §0) before interpreting.
 5. Snapshot → `journal/inbox/<svc>_<date>.md` (one block per client; the engine source dot).
@@ -43,8 +56,10 @@ format, quirks) and inherits everything below.
 - **Read-only.** No send/reply/react — outbound only on an explicit "send" from the operator in
   Cowork chat.
 - **Mark-as-read caveat.** Opening a chat may mark it read in some web clients (WhatsApp, Max) —
-  minimise by opening only chats with new messages; note it as a known limitation. (Telegram
-  `/a/` can preview without marking; provider skills state their behaviour.)
+  minimise by opening only chats the **watermark** (not the badge) says are new; note it as a known
+  limitation. (Telegram `/a/` can preview without marking; provider skills state their behaviour.)
+  Note the inverse risk too: a chat a human already read carries **no badge yet is unprocessed** —
+  the watermark, not the badge, is what tells Saldo it still needs reading (step 3).
 - Session linking is **human-gated**; reading is `auto` once linked. No QR/session data in state.
 
 ## Per-provider deltas (each skill specifies)
