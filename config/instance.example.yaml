@@ -79,9 +79,10 @@ sources:
 
 # Morning collectors. Times are local to instance.timezone. A collector that
 # fails or finds nothing degrades gracefully (empty panel, status dot on the overview).
-# question_resolver runs at 07:00, AFTER all the collectors (so it works only the open
-# questions still unanswered — collectors already close what fresh data settles) and BEFORE
-# the monitors/dashboards. See connectors/question_resolver/SKILL.md.
+# resolution_sweep runs at 07:00, AFTER all the collectors (so it works only the residue
+# they left) and BEFORE the monitors/dashboards — collect → resolve → derive → render. It
+# walks EVERY active task and folds in the open-question rung logic
+# (connectors/question_resolver/SKILL.md), so there is no separate question_resolver job.
 schedule:
   # Every enabled collector that should run on a timer belongs here. The scheduler
   # skill flags an enabled connector that has a collector but no entry (e.g. a missing
@@ -94,12 +95,11 @@ schedule:
   whatsapp:   "06:25"
   max:        "06:27"
   practice_management: "06:30"
-  question_resolver: "07:00"   # AFTER all collectors — works only the residue still open (no double work, no rechecking solved)
+  resolution_sweep: "07:00"   # AFTER collectors, BEFORE monitors — recompute the edge over ALL active tasks (incl. open questions, via the question_resolver rung logic); advance the reversible, surface needs_operator. policies/resolution-model.md
   deadline_monitor: "07:30"   # MONITOR — derives from state, no external calls (no connectors entry)
   staleness_monitor: "07:32"  # MONITOR — missing-data & reconciliation (no connectors entry)
   threshold_monitor: { at: "07:34", cadence: weekly, weekday: mon }   # MONITOR — turnover moves monthly → weekly
   counterparty_status: { at: "07:36", cadence: monthly, day: 1 }      # registry re-check of counterparties (EGRUL), monthly
-  resolution_sweep: "07:40"   # AFTER collectors + question_resolver + monitors — recompute the edge over ALL active tasks (incl. open questions); advance the reversible, surface needs_operator. policies/resolution-model.md
   dashboards: "07:45"
 
 safety:

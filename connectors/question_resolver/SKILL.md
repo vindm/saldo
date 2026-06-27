@@ -1,9 +1,14 @@
 # Skill: question_resolver — residue auto-resolution of open questions
 
-**A scheduled LLM agent** (the same runtime) that runs **after the morning collectors**, walks
-every open question **still open**, tries to **answer it from a source the system can reach
-itself**, and — when the answer is confident and objective — applies the fact and closes the
-question. The operator's queue holds only what genuinely needs a person.
+**The named `open_question` rung logic** (the same runtime) — the acquire-and-close procedure for
+open questions: walk every open question **still open**, try to **answer it from a source the
+system can reach itself**, and — when the answer is confident and objective — apply the fact and
+close the question, so the operator's queue holds only what genuinely needs a person.
+
+> **Not a separately scheduled daemon.** `resolution_sweep` (the one scheduled actualization
+> daemon, 07:00) runs this logic over open questions as part of its pass over all active tasks —
+> there is no separate `question_resolver` cron job. This file stays as the reusable contract
+> that `resolution_sweep`, `mm_update`, `documents`, and `egrul` point at.
 
 > **Not a revival of the deprecated `updater`/`analytic` daemons.** Those were rule-based
 > patch *proposers* that applied almost nothing. This is a cognitive agent that runs the
@@ -19,10 +24,10 @@ copy-paste prompt) is the **fake-autonomy** failure described in `mm_update/SKIL
 § Derive before asking`. This skill does that acquisition work so the morning queue contains
 only what genuinely needs a person.
 
-## Trigger & ordering — runs AFTER the collectors (the residue rule)
+## Trigger & ordering — runs within the sweep, AFTER the collectors (the residue rule)
 
-- Scheduled via `config/instance.yaml → schedule.question_resolver` (`07:00`, after the morning
-  collectors at 06:00–06:30, before the monitors/`dashboards`).
+- Invoked by `resolution_sweep` (`07:00`, after the morning collectors at 06:00–06:30, before the
+  monitors/`dashboards`) — no separate schedule entry of its own.
 - **Why after, not before:** the collectors (news/email/tg/whatsapp/max/**documents**) apply
   fresh data inline and **close the questions that new data answers** — a synced statement
   settles the bank question, an ingested document closes a "needs a document" question. Running
@@ -160,11 +165,11 @@ bundles them, and attach it to the client for the operator to review and send. S
 ## Deployment note (lands on the operator's machine by pulling the engine)
 
 This skill writes only **existing** fields (state files + track `status`/`history`), so it
-ships as **engine files + a schedule line — no data migration** (no schema change). The
-operator upgrades by pulling the engine; the nightly run then resolves *their* live questions
-on *their* data (it is not "fixed" by hand in any snapshot). Registering the actual nightly
-job is the existing manual daemon-wiring step (see `docs/` — registry/daemon wiring is not yet
-automated). If we later record per-question resolution telemetry as new fields, **that** is a
+ships as **engine files — no data migration** (no schema change). The
+operator upgrades by pulling the engine; the scheduled `resolution_sweep` run then applies this
+logic to *their* live questions on *their* data (it is not "fixed" by hand in any snapshot).
+There is no separate job to register — it rides the `resolution_sweep` cron
+(`connectors/scheduler/SKILL.md`). If we later record per-question resolution telemetry as new fields, **that** is a
 migration (`migrations/NNNN_*.py`).
 
 ## Related

@@ -12,7 +12,7 @@ RU tax news — plus **on-demand RU banks** (T-Bank/Alfa), OFD (month-end), EGRI
 invisible until a human types it in. And a whole class of facts arrives by **no channel at
 all** and must be *computed* — and nothing computes it.
 
-> `question_resolver` only resolves questions that already exist. These gaps are signals that
+> The sweep's `question_resolver` rung logic only resolves questions that already exist. These gaps are signals that
 > **never become questions**, because no channel carries them — silent blind spots, not open
 > items.
 

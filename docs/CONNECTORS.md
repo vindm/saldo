@@ -40,8 +40,8 @@ These have no external API; they read and write client state, drive the upgrade 
 | `staleness_monitor` | monitor | Flags tracks with no movement (stale) for nudge or postpone |
 | `threshold_monitor` | monitor | Watches regime thresholds (e.g. turnover approaching a regime/PKP limit) |
 | `counterparty_status` | monitor | Counterparty (contractor) status / reliability signals |
-| `question_resolver` | resolver | Nightly auto-resolution of acquisition / open questions per the `mm_update` rung logic |
-| `resolution_sweep` | resolver | Nightly sweep that performs only the reversible half of a resolution and surfaces the rest (`policies/resolution-model.md`) |
+| `question_resolver` | resolver | The `open_question` rung logic (acquire / close) — **run within `resolution_sweep`, not separately scheduled** |
+| `resolution_sweep` | resolver | The one scheduled actualization daemon (07:00): performs the reversible half of every active task's resolution — incl. open questions via the `question_resolver` rung logic — and surfaces the rest (`policies/resolution-model.md`) |
 | `scheduler` | environment | Reconciles the operator's scheduled tasks to `config/instance.yaml → schedule` (Saldo-owned `saldo-<name>` jobs only) |
 | `migration_runtime` | upgrade | Drives the runtime half of migrations during an upgrade (`migrate.py next → apply → record`) |
 | `update` | upgrade | Operator self-update: checks GitHub, runs the guarded pull → migrate → rebuild via `tools/update.py` |

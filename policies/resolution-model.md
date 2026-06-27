@@ -108,9 +108,9 @@ close».
 The edge is recomputed (a) **inline on every state update** (mm_update, when a signal is folded
 in — the existing path), and (b) by a periodic **sweep** over the nearest active tasks
 (`connectors/resolution_sweep/SKILL.md`), several times a day, so a task that became doable
-**without a fresh signal** is still advanced. The sweep **generalizes `question_resolver`**
-(which walks only `open_question`) to every active task; `question_resolver` is its
-`open_question` special case.
+**without a fresh signal** is still advanced. The sweep is the **one scheduled** actualization
+daemon; it walks every active task and **folds in** the `open_question` rung logic
+(`connectors/question_resolver/SKILL.md`), which is no longer a separate scheduled job.
 
 ## Visibility — no new surface
 

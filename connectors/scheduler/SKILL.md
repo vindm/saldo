@@ -6,7 +6,7 @@ when* by editing config (or asking in chat); this skill converges the machine to
 idempotent, dry-run first, approval to apply. It is to **jobs** what `migrations/` is to
 **data**: a declarative target plus a reconciler that makes reality match it.
 
-> **Why this exists.** The daemons (`question_resolver`, the morning collectors, `dashboards`)
+> **Why this exists.** The daemons (`resolution_sweep`, the morning collectors, `dashboards`)
 > are declared in `config/instance.yaml → schedule`, but nothing wired that declaration to the
 > real scheduled tasks on Mom's laptop — registering them was a manual, drift-prone step (a
 > known tail). This skill closes that gap so every operator runs the *same* daemon set,
@@ -24,7 +24,7 @@ Built from config + the runbooks — never invented:
 
 `A` = `list_scheduled_tasks`, **filtered to Saldo-owned tasks only**. Ownership is identified by:
 
-- **taskId prefix `saldo-<name>`** (e.g. `saldo-question_resolver`, `saldo-email`, `saldo-dashboards`), and
+- **taskId prefix `saldo-<name>`** (e.g. `saldo-resolution_sweep`, `saldo-email`, `saldo-dashboards`), and
 - a **marker line** in the generated prompt: `# [saldo-managed: <instance.id>]`.
 
 🔴 **Never create, modify, disable, or delete a task that is not Saldo-owned.** The operator's
@@ -39,9 +39,9 @@ match the prefix *and* the marker before touching anything. When unsure, treat i
 3. **Diff:**
    - in `D`, not in `A` → **CREATE** (`create_scheduled_task`, taskId `saldo-<name>`, cron, prompt).
    - in both, **drift** (cron/time, prompt version, enabled, description) → **UPDATE** (`update_scheduled_task`).
-   - Saldo-owned in `A`, not in `D` (job removed/renamed in config) → **DISABLE** (`update_scheduled_task` `enabled:false`). Prefer disable over delete so a mistaken removal is recoverable.
+   - Saldo-owned in `A`, not in `D` (job removed/renamed in config) → **DISABLE** (`update_scheduled_task` `enabled:false`). Prefer disable over delete so a mistaken removal is recoverable. (Concretely: after the upgrade that folds `question_resolver` into the 07:00 sweep, the retired `saldo-question_resolver` is **disabled** here — its logic now rides `saldo-resolution_sweep`.)
    - everything else → **leave untouched** (not ours).
-4. **Show the plan** — a compact table: `CREATE saldo-question_resolver @ 07:00`,
+4. **Show the plan** — a compact table: `CREATE saldo-resolution_sweep @ 07:00`,
    `UPDATE saldo-dashboards (07:30→07:45)`, `DISABLE saldo-oldjob`, plus "N already in sync".
 5. **Apply only on operator approval.** Creating/updating/disabling a job is a configuration
    change → the `track_close`-class approval gate; `create_scheduled_task` also shows its own
@@ -85,7 +85,7 @@ differently (config keys are functional; some connectors use a composite entrypo
 | `news` | `connectors/news/morning_full_scan.md` |
 | `tg` | `connectors/tg/sync.md` |
 | `practice_management` | `connectors/finkoper/` (the Finkoper snapshot) |
-| `documents`, `whatsapp`, `max`, `question_resolver`, the monitors, `counterparty_status` | `connectors/<name>/SKILL.md` |
+| `documents`, `whatsapp`, `max`, `resolution_sweep`, the monitors, `counterparty_status` | `connectors/<name>/SKILL.md` |
 | `dashboards` | `engine/generate.py` (not a connector) |
 
 On-demand connectors with functional config keys (NOT scheduled — resolved when invoked):
@@ -113,7 +113,7 @@ No secrets in the prompt (it is stored as plaintext under `Scheduled/<taskId>/SK
 ## Pipeline ordering & readiness (effective scheduling)
 
 The schedule encodes a **dependency chain** by clock — collectors (06:00–06:30) →
-`question_resolver` (07:00, residue) → monitors (07:30–07:36) → `dashboards` (07:45). But Cowork
+`resolution_sweep` (07:00, residue) → monitors (07:30–07:36) → `dashboards` (07:45). But Cowork
 tasks fire by cron **independently**, and a run missed while the app was closed **replays on next
 launch** — so a job can start before its upstream finished, or out of order. **Do not make
 correctness depend on the exact wall-clock.**
@@ -122,7 +122,7 @@ Each downstream job does a **readiness check** before its real work: confirm tod
 heartbeats exist (`journal/inbox/<type>_heartbeat.txt` / per-account watermarks). On a missing/stale
 upstream, **degrade gracefully, don't block** (matches the collectors' own "fail → empty panel,
 never a broken render"):
-- `question_resolver` — run on the state it has, but **flag** «запущен до сбора <collector> —
+- `resolution_sweep` — run on the state it has, but **flag** «запущен до сбора <collector> —
   остаток может быть неполным»; the residue rule still holds (it only touches still-open questions).
 - monitors — derive from current state, note any staleness.
 - `dashboards` — **always render** (the unconditional-render rule); it's last and must refresh the
@@ -177,7 +177,7 @@ The coverage report is advisory (it does not auto-add jobs) — the operator dec
   what's scheduled?" → run the reconcile (dry-run), show the plan, apply on approval.
 - **After an upgrade:** part of the standard flow — pull the engine → `migrate.py up --apply`
   (data) → **run `scheduler` (jobs)** → `state_lint`. This is how a new/changed daemon (like
-  `question_resolver`) actually lands on the operator's machine.
+  `resolution_sweep`) actually lands on the operator's machine.
 - **Optional periodic self-check:** a low-frequency `saldo-scheduler` job can re-reconcile
   weekly to catch drift; it reports, it does not silently re-create removed jobs.
 
@@ -192,7 +192,7 @@ would consume the same `D` — out of scope for v1.)
 ## Related
 
 - `config/instance.yaml → schedule` / `connectors.*` — the desired-state this skill reads.
-- `connectors/question_resolver/SKILL.md`, the collectors (`news`/`email`/`practice_management`/`dashboards`) — the jobs it manages.
+- `connectors/resolution_sweep/SKILL.md`, the collectors (`news`/`email`/`practice_management`/`dashboards`) — the jobs it manages (`resolution_sweep` folds in the `question_resolver` open-question rung logic).
 - `policies/safety-rules.md §5a` — approval model; `policies/INSTRUCTIONS.md` scheduling section.
 - `migrations/README.md` — the data-layer analogue (same dry-run/idempotent discipline).
 - `tests/runtime_scenarios/` — S6 is the gate for this behaviour.

@@ -115,7 +115,7 @@ A reliable tell of this anti-pattern: you can write a **complete, runnable `assi
 
 The fake-autonomy failure is offering rung 1 or 2 work as a rung-3 chore (worst of all: a copy-paste prompt). If you can write the full `assist` prompt, the work is rung 1 or 2 — run it.
 
-> **At scale this runs as a scheduled daemon.** `connectors/question_resolver/SKILL.md` runs **after the morning collectors**, walks every open question still open, applies this rung logic, performs the rung-1/2 reads itself, and closes what it can answer confidently — so the queue holds only rung-3 (genuine human) items. Running after the collectors means it never re-does what they just resolved. The rung classification here is the contract it executes.
+> **At scale this runs inside the scheduled sweep.** `connectors/resolution_sweep/SKILL.md` runs **after the morning collectors** and applies the `open_question` rung logic (`connectors/question_resolver/SKILL.md`) over every open question still open — performing the rung-1/2 reads itself and closing what it can answer confidently — so the queue holds only rung-3 (genuine human) items. Running after the collectors means it never re-does what they just resolved. The rung classification here is the contract it executes.
 
 When you do resolve something autonomously, keep it **visible**: write the fact via `state_ops`, log it in `journal/operator_decisions.md` (`Confidence: high`, note "derived from <source>"), and let it surface in the overview «🔄 Последние обновлённые треки» zone — so the operator *sees* what the system figured out, with a one-tap undo, instead of a queue of chores. Autonomy means doing the work and showing it — not asking permission to do what needs no permission.
 

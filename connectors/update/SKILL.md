@@ -130,8 +130,9 @@ apply (step 6) until the operator has said «да»** to the step-5 preview.
      ```
 
 6a. **Reconcile the schedule — register any newly-shipped daemon.** A pull can
-   add or rename jobs in `config/instance.example.yaml → schedule` (e.g.
-   `resolution_sweep`). Carry the new/changed entries into her
+   add, rename, or retire jobs in `config/instance.example.yaml → schedule` (e.g.
+   add `resolution_sweep`; retire `question_resolver`, now folded into it). Carry the
+   new/changed/removed entries into her
    `config/instance.yaml → schedule` (her config is her own — the pull does not
    overwrite it), then drive `connectors/scheduler/SKILL.md` so the desired set
    is reconciled to real OS tasks — idempotent, Saldo-owned `saldo-*` only,

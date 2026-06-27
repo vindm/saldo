@@ -1,6 +1,6 @@
 # Skill: resolution_sweep — re-check every active task's next step, advance what the system can do itself
 
-**A scheduled LLM agent (the same runtime)** that walks **every active task** (not only open
+**The one scheduled actualization daemon (the same runtime)** that walks **every active task** (not only open
 questions), recomputes each task's **resolution edge** (`policies/resolution-model.md`), and
 **takes the next step itself** whenever that step is in the `safety-rules §5a` no-approval set
 and passes the `auto` gate. Tasks that need a person stay normal tracks; tasks waiting on
@@ -8,8 +8,9 @@ external data are left. This is the missing **sync moment**: collectors only tou
 **fresh signal arrives for it** — this sweep advances a task whose next step became doable from
 data **already in hand**, even when no new signal arrived.
 
-> **Generalizes `question_resolver`.** That skill walks only `open_question` residue; this one
-> walks **all** active tasks and **delegates** the `open_question` rung logic to it. Same engine:
+> **Folds in `question_resolver`.** That file is the named `open_question` rung logic, **not a
+> separate scheduled job**; this sweep is the single scheduled daemon and runs that logic over
+> open questions as part of its pass over **all** active tasks. Same engine:
 > it runs the **mm_update** protocol (`connectors/mm_update/SKILL.md`) — reads, decides, writes
 > state via `state_ops`/`_tracks`. "The daemon is the same me, just launched on a schedule."
 
@@ -25,9 +26,11 @@ that pass, standing — it re-evaluates the **nearest active tasks** every cycle
 
 ## Trigger & ordering
 
-- Scheduled via `config/instance.yaml → schedule.resolution_sweep`. Runs **after** the morning
-  collectors (so it works only the **residue** — never re-doing a collector's job) **and again
-  midday** — the whole point is to re-check tasks that **no fresh signal** touched.
+- Scheduled via `config/instance.yaml → schedule.resolution_sweep` (`07:00`, **after** the morning
+  collectors so it works only the **residue** — never re-doing a collector's job — and **before**
+  the monitors, honoring collect → resolve → derive → render). It is the **only** scheduled
+  resolution job (the former separate `question_resolver` 07:00 job is folded in here). A midday
+  second pass to re-check tasks that **no fresh signal** touched is desirable, not yet scheduled.
 - On demand: the operator says "пройдись по задачам / сделай сверку / advance what you can".
 - Process `status: active` tasks whose last sweep attempt isn't already this cycle (a per-task
   attempt log makes a same-cycle re-run a no-op). Skip `deferred`; skip `zone: system_internal`.
@@ -79,9 +82,9 @@ For each active task, compute `resolution_mode` (`policies/resolution-model.md`)
 `open_question` is just a `task_type`, so the sweep walks and advances it like every other active
 task — checking each cycle whether its answer has become reachable and, if so, acquiring it and
 closing it (the one auto-close). `connectors/question_resolver/SKILL.md` is the **named rung
-logic** for that acquisition, not a competing daemon: the morning `question_resolver` run does the
-focused open-question pass, and the later `resolution_sweep` re-checks the residue together with
-all other tasks, so a question whose source landed midday is still answered. Same gate, same
+logic** for that acquisition, not a competing daemon and **not separately scheduled**: this sweep is the single scheduled pass
+and runs that logic over open questions alongside every other task, so a question whose source
+landed by run time is answered in the same pass. Same gate, same
 provenance, same anti-spam attempt log.
 
 **Re-evaluate `no_auto_resolve` every pass — it is a hint, not a lock.** A question flagged
@@ -132,7 +135,7 @@ calibration outcome (an `auto` step confirmed/reversed) as a new field, **that**
 ## Related
 
 - `policies/resolution-model.md` — the edge spec this skill applies (the `auto` gate, θ).
-- `connectors/question_resolver/SKILL.md` — the `open_question` special case (the only auto-close).
+- `connectors/question_resolver/SKILL.md` — the `open_question` rung logic this sweep runs (not separately scheduled; the only auto-close).
 - `connectors/mm_update/SKILL.md` — Confidence, Derive-before-asking, §D «Подтвердить закрытие».
 - `policies/safety-rules.md §5a/§D` — the `auto` / `needs_operator` boundary **is** these rules.
 - `engine/state_lint.py` — the **Clean** gate reads these checks.
