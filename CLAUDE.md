@@ -1,6 +1,8 @@
 # CLAUDE.md — Saldo (ai-bookkeeping-assistant)
 
-> Read at the start of every session. These are hard constraints, not suggestions. A violation is a bug.
+> **Audience router.** This file is for *developing the engine* — hard constraints for anyone (human or AI) who edits this repo; a violation is a bug.
+>
+> **If you are the runtime serving the operator, your program is `policies/INSTRUCTIONS.md` (+ `workflows/`) — start there, not here.** Operator update cycle: `connectors/update/SKILL.md`. Everything below is engine-development context.
 
 ## What this project is
 
@@ -120,24 +122,14 @@ The runtime's inputs and upkeep are scheduled **collectors** (fetch an external 
 - New connector/workflow = config-driven drop-in behind the common interface (`docs/CONNECTORS.md`), not a hardcoded special case.
 - New domain entities (e.g. an employee) and their links follow `docs/ENTITY-LINKING-ARCHITECTURE.md` (decided 2026-06-26): **tasks are the work hub; an entity is a lightweight record; the link is a uniform `task.type_specific.refs:[{type,id}]` owned by the task; reverse views — an entity's tasks/history/reports and per-entity cards — are DERIVED at render, not stored.** Don't give an entity its own task-list/history store (that drifts). Lint: a generic `ref_resolves` replaces per-type link checks.
 
-## Known gaps (as of 2026-06-20 — verify before relying)
+## Known gaps (verify before relying)
 
-Fixed 2026-06-23 (operator rollout hardening): timezone setup no longer hard-depends on the `tzdata` package — `engine/generate.py` falls back to fixed offsets (Bali UTC+8 / MSK UTC+3, both DST-free) when `zoneinfo` has no DB (Windows); `tools/update.py` is the one-click updater (non-interactive git, self-heal `reset --hard @{u}` + `clean -fd`, installs `requirements.txt`) and **refuses to build the demo when config/data.dir is absent**; `tools/port_config.py` relocates a config making relative `data.dir` absolute; Windows `.bat`s in `tools/windows/` (`setup_saldo`, `update_saldo`, `install_shortcut`, `fix_config`). Operator reality: Windows + OneDrive-synced `Documents` makes `git pull` hit the "could not delete folder" retry loop — durable fix is relocating the clone to a non-synced path (`C:\Saldo`); see `docs/DEPLOY-WINDOWS.md`.
+- **`resolution_sweep` OS-job not registered live yet** — declared in `config → schedule` (07:40) but needs a real end-to-end run on an operator machine via `connectors/scheduler/SKILL.md` (same tail as the other daemons); a midday second pass is desirable, not yet scheduled.
+- **Payroll follow-ons (id):** the employee CARD is designed (entity-linking) but not wired live (clickable roster row → derived card); auto-ingest of the monthly ведомость by the `documents` collector is proven but not wired; the THR-method parity residual is surfaced but not reduced to zero; a **PPh Badan 22%** transition and a **PPN/PKP** (e-Faktur) path remain unbuilt.
+- **Fresh-checkout config** — `config/instance.yaml` is git-ignored; on a new clone re-copy `instance.example.yaml` and set `data.dir`, or the demo renders against a dead path.
+- **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) may carry uncommitted changes — commit them so GitHub renders the README.
 
-Fixed 2026-06-20: `.gitignore` now ships the synthetic `instances/example` data (generated `*.html`/`*.bak_*` stay ignored) and ignores `config/instance.yaml`; `docs/ROADMAP.md` reconciled to reality; `policies/INSTRUCTIONS.md` legacy path/schedule references scrubbed to the `instances/<id>/data/` layout.
-
-Landed 2026-06-26 (id-pack foreign-worker + per-employee payroll): the `id` pack now covers **foreign workers (TKA)** — `checklists/foreign-worker-tka.md` (RPTKA/KITAS, DPKK, expat salary floor, mandatory dual-kas BPJS, the 183-day residency fork → PPh 21 annualisasi vs PPh 26), `foreign-worker-risk-review.md`, glossary + a `tka_immigration` news topic; a **per-employee roster** (`state/payroll.json`, migration `0019`) with a pack-declared BPJS-coverage + permit-expiry lint (`state_lint` H3); and **per-employee payroll computation** — the runtime computes PPh 21 from gross via the statutory **TER tables** in `jurisdictions/id/ter.yaml` (PP 58/2023 + PMK 168/2023; PTKP + annual scale), records the month as one `payroll_pph21_bpjs` task carrying `type_specific.payroll_lines[]` (+`thr`), reconciled to `financials.periods[].taxes` and parity-checked against the incumbent accountant (`state_lint` H4 + `ref_resolves`). The track modal renders the lines as a **review cockpit** (header band + per-line Δ-vs-prior-month / THR / flag — review by exception; signals derived at render in `_track_attrs`). All under the entity-linking architecture; the only schema change was the additive migration `0019`. Validated on the synthetic `kirana` fixture Feb–May (April reconciled to the rupiah vs the incumbent; other months differ by the incumbent's separate-THR method). Scenarios S24–S28.
-
-Landed 2026-06-27 (resolution model / autonomy edge): every active task now has a derived `resolution_mode` (`auto`/`needs_operator`/`wait_external`) — `policies/resolution-model.md` + `INSTRUCTIONS §0.6`; a proactive `connectors/resolution_sweep/SKILL.md` (generalizes `question_resolver`, open questions first-class); the `update` cycle gained reconcile-schedule + actualize-sweep steps (runtime-driven); render gained the «Требуют вас» queue, a confidence chip, and `data-track-resolution`/`-confidence`; always-on recent zones; scenario **S29**. No migration (derived edge, existing fields). **Open tail:** `resolution_sweep` is declared in `config → schedule` (07:40) but the OS-job registration still needs a real end-to-end run on an operator machine via `scheduler` (same tail as the other daemons); a midday second pass is desirable but not yet scheduled.
-
-Still open (re-audited 2026-06-20):
-
-- **Payroll follow-ons (id):** the employee CARD is designed (entity-linking) but not yet wired live (clickable roster row → derived card); auto-ingest of the monthly ведомость by the `documents` collector (parser proven on 4 months, not yet wired); the THR-method parity residual (incumbent taxes the bonus separately) is surfaced but not reproduced to zero; a worked **PPh Badan 22%** transition and a **PPN/PKP** (e-Faktur) path remain unbuilt for the `id` pack.
-
-- **Demo config points at a dead path** — `config/instance.yaml` (git-ignored, local) currently sets `data.dir` to a stale ephemeral session path (`/sessions/.../Saldo-data-clean`). The repo's own demo won't render until `data.dir` is repointed at `../instances/example/data` (as in `instance.example.yaml`). Re-copy the example config on a fresh checkout.
-- (resolved 2026-06-22) `engine/_LINT.json` is **not** tracked — it is git-ignored (`.gitignore` line 57) and absent from `git ls-files`. The earlier "is tracked" note was stale.
-- **README images** (`docs/demo.gif`, `docs/screenshot-*.png`) are tracked but have uncommitted modifications — commit them so GitHub renders the README; otherwise the working tree stays dirty.
-- (resolved 2026-06-21) the internal `policies/roadmap.md` and the `policies/HANDOFF_*.md` migration artifacts carried ported client specifics — removed from the engine (practice specifics belong in the instance data, not the public engine).
+> History of landed/fixed items lives in git log and `docs/ROADMAP.md`, not here.
 
 ## Relationship to the `accountant` repo (legacy)
 
