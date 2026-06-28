@@ -666,6 +666,40 @@ def lint_client(cid, _xclient=None):
             if lu and lu > TODAY:
                 _v(viols, 'error', cid, 'lu_future', f'{stem}.json: last_updated in the future: {data.get("last_updated")}')
 
+    # O. TG channel resolvability (rotation-drift guard)
+    # The TG daemon derives its rotation set from behavior.channels (every client
+    # with a telegram channel), NOT from a hand-kept list — so a client can no
+    # longer be silently dropped. But a telegram channel is only USEFUL if the
+    # daemon can resolve the chat: it needs a @username, OR a phone to resolve by,
+    # OR a cached peer_id. A telegram channel recorded only as a display name with
+    # none of those is unreachable (Telethon get_entity cannot resolve a display
+    # name) and would fall out of every sync — surface it instead of dropping it.
+    beh = states.get('behavior') or {}
+    bch = beh.get('channels') or {}
+    _all_ch = []
+    _p = bch.get('primary')
+    if isinstance(_p, dict):
+        _all_ch.append(_p)
+    _all_ch += [c for c in (bch.get('secondary') or []) if isinstance(c, dict)]
+    # The daemon syncs the FIRST telegram channel (primary, then secondary order) —
+    # mirror tg_sync.tg_resolver exactly so the lint judges the channel actually
+    # synced, not auxiliary ones (e.g. a client's assistant TG channel).
+    _tg = next((c for c in _all_ch if c.get('type') == 'telegram'), None)
+    if _tg is not None:
+        _has_phone = any(c.get('type') == 'phone' and str(c.get('id') or '').strip()
+                         for c in _all_ch)
+        _cid_val = str(_tg.get('id') or '').strip()
+        _resolvable = (
+            _cid_val.startswith('@')
+            or bool(str(_tg.get('username') or '').strip())
+            or _tg.get('peer_id') not in (None, '')
+            or _has_phone
+        )
+        if not _resolvable:
+            _v(viols, 'warn', cid, 'tg_unresolvable',
+               f'behavior: telegram channel "{_cid_val[:40]}" has no @username, no phone, '
+               f'and no cached peer_id — the TG daemon cannot resolve it (chat falls out of sync)')
+
     # collect for cross-client reconciliation
     if _xclient is not None:
         for cp in (states.get('counterparties') or {}).get('counterparties', []):

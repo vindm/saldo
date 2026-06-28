@@ -40,11 +40,13 @@ Start-ScheduledTask -TaskName Cowork_TG_Sync_Daily
 - `launchers/run_full_scan.bat` — a manual full scan (with the window open)
 - `secrets/tg_api.json` — api_id, api_hash, phone (SECRET)
 - `secrets/operator_session.session` — Telethon session (SECRET)
-- `journal/tg_state.json` — last_message_id for each direct client
+- `journal/tg_state.json` — **watermark cache** keyed by client id (`last_message_id` + cached `peer_id`). NOT the rotation list — membership is derived from `behavior.channels` (every client with a `telegram` channel).
 - `journal/inbox/tg_<date>.md` — message snapshots
 - `journal/daemon_logs/tg_sync_<date>.log` — daemon logs
 
 ### Sync logic
+
+**Membership (who is in `--all`):** every client whose `behavior.json` declares a `telegram` channel — derived at runtime from state, not a hand-kept list (a missing client can no longer be silently dropped — the brukh incident). Each chat is resolved by, in order: cached `peer_id` → `@username` → `phone`, so a display-name-only client with a phone is still synced. `tg_state.json` is a pure watermark cache.
 
 On each run, for each client:
 - If `last_message_id == null` OR `--full` was passed → full scan, date limit: `now - lookback_months`
@@ -118,6 +120,33 @@ document.execCommand('selectAll',false,null);
 document.execCommand('insertText',false,'[client]');   // query
 ```
 Read the results from `document.querySelector('#LeftColumn').innerText` — candidates under "Chats and Contacts"/"Global Search". Open a chat: click the needed `.ListItem` with a series of mouse events (pointerdown→mousedown→pointerup→mouseup→click) via `elementFromPoint` at the center. The hash will become `#<peer_id>`.
+
+### Reading the body — the tab MUST be foreground/active 🔴
+**The single most common live-read failure (the brukh EHC-balance incident): the controlled
+tab is backgrounded `[Inactive]`, so the message body never loads.** Telegram Web's
+`.MessageList` is virtualised **by visibility** — in a background/inactive tab React throttles
+and the message rows are **not mounted**, so the DOM has no text to scrape. The left column and
+search still render (they're cheap), which is why you can *find* the chat but not *read* it. The
+absence of body text here is NOT "no messages" and NOT a hard limit — it means the tab isn't
+foreground.
+
+So, before reading the conversation body:
+1. **Bring the `/a/` tab to the foreground and make it the active tab** (`tabs_create_mcp` /
+   activate the tab; the same foreground rule the search step needs). A read attempt on a
+   backgrounded tab is invalid — re-activate and retry, never report "технически нельзя".
+2. Jump to the chat by `peer_id` (`/a/#<peer_id>`), then **drive the virtualiser**: set
+   `el.scrollTop = el.scrollHeight` on `.MessageList` to force the recent rows to mount, read
+   `el.innerText`. Scroll up in steps if you need older messages.
+3. If the tab cannot be foregrounded at all in this environment, say so explicitly and ask the
+   operator to open the chat in her own Telegram tab and leave it active — do **not** present it
+   as an inherent inability to use Telegram.
+
+🔵 **But prefer the Telethon path.** Since the rotation is now derived from `behavior.channels`
+and a chat resolves by cached `peer_id` → `@username` → **phone**, a client with only a display
+name + phone (brukh) is read by the reliable python daemon — her messages land in
+`journal/inbox/tg_<date>.md` with no browser scraping. This Chrome live-read is the fallback for
+when the operator's Windows daemon is off (e.g. Bali); it is no longer the only way to reach a
+handle-less client.
 
 ### Reading messages
 The feed scroll container is `.MessageList` (class `Transition MessageList custom-scroll`), virtualized. Bottom (recent): `el.scrollTop=el.scrollHeight`. Text — `el.innerText`; date dividers "April 1" etc.

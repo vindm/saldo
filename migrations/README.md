@@ -270,6 +270,22 @@ task-classifier: `migrations/RUNTIME_PASS_SPEC.md`, `migrations/TASK_CLASSIFIER.
   211 runtime: 175 system, 35 cowork, 1 news; 0 sourceless remain, lint 0 errors +
   0 event_missing_source, integrity clean, idempotent).
 
+- `0026_tg_channel_resolver.py` — behavior.channels: open structured TG-resolver
+  slots on every `telegram` channel — `username` (`@handle` when the channel `id`
+  is one, else null) + `peer_id` (null) where absent. Single-sources TG
+  reachability into `behavior.json` so the daemon resolves a chat by cached
+  `peer_id` → `@username` → `phone` (a display-name-only client with a phone — the
+  brukh case — is still synced). Additive, behaviour-preserving (no renderer reads
+  the keys → dashboards byte-identical), idempotent (channel with both keys
+  skipped), deterministic/shape-matched (the only judgment is "does `id` start with
+  '@'" — name-free), zero real data. Pairs with the rotation-from-`behavior.channels`
+  rework in `connectors/tg/tg_sync.py` (`tg_resolver` + `resolve_entity`) and the
+  `tg_unresolvable` lint check (a telegram channel with no @username, no phone, no
+  cached peer_id is surfaced, never silently dropped). The journal watermark cache
+  `journal/tg_state.json` is intentionally NOT migrated — it is a regenerable
+  per-run cache keyed by client id, not source-of-truth state, rebuilt by the daemon.
+  Mirrors the additive-slot pattern of 0017 / 0018 / 0011 / 0013.
+
 ## Known follow-ups needing a content decision (not yet migrations)
 
 These came out of the 2026-06-21 audit but are **not** mechanical synonyms, so

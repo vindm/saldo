@@ -675,7 +675,7 @@ TRACK_MODAL_JS = r"""
           var dt = d.title || '';
           if(!dt || dt === d.id) dt = '__RELATED_TASK__';
           // clickable: jumps to the blocker's own task card (handler below)
-          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '">' +
+          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '" data-dep-client-id="' + esc(currentTrack.clientId || '') + '">' +
             '<span class="dep-arrow">&#128274;</span>' + esc(dt) +
             '<span class="dep-go">&rarr;</span>' +
           '</div>';
@@ -694,7 +694,7 @@ TRACK_MODAL_JS = r"""
           var dt = d.title || '';
           if(!dt || dt === d.id) dt = '__RELATED_TASK__';
           // clickable: jumps to the blocked task's own card (shared handler below)
-          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '">' +
+          return '<div class="tm-dep-link" data-dep-id="' + esc(d.id || '') + '" data-dep-client-id="' + esc(currentTrack.clientId || '') + '">' +
             '<span class="dep-arrow">&#128275;</span>' + esc(dt) +
             '<span class="dep-go">&rarr;</span>' +
           '</div>';
@@ -943,18 +943,41 @@ TRACK_MODAL_JS = r"""
   document.addEventListener('click', function(e){
     var inner = e.target.closest('button,a');
     if(inner) return;
-    // a dependency chip (modal «Зависимости», plan/card rows): jump to the
-    // blocker's own task card if it's rendered anywhere on the page.
+    // a dependency chip (modal «Зависимости» / «Блокирует», plan/card rows):
+    // jump to the related task's own card if it's rendered on the page; else
+    // (e.g. a blocker shown on the overview but living on the client's own
+    // dashboard) navigate there and auto-open it via the #track= deep link.
     var dep = e.target.closest('[data-dep-id]');
     if(dep){
       var did = dep.getAttribute('data-dep-id');
-      var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did;
-      var bcard = did && document.querySelector('.track-card-clickable[data-track-id="' + sel + '"]');
-      if(bcard){ e.preventDefault(); e.stopPropagation(); openTrackModal(bcard); return; }
+      if(did){
+        var sel = (window.CSS && CSS.escape) ? CSS.escape(did) : did;
+        var bcard = document.querySelector('.track-card-clickable[data-track-id="' + sel + '"]');
+        if(bcard){ e.preventDefault(); e.stopPropagation(); openTrackModal(bcard); return; }
+        var depCid = dep.getAttribute('data-dep-client-id') || (currentTrack && currentTrack.clientId) || '';
+        if(depCid){
+          e.preventDefault(); e.stopPropagation();
+          window.location.href = 'dashboard_' + depCid + '.html#track=' + encodeURIComponent(did);
+          return;
+        }
+      }
     }
     var card = e.target.closest('.track-card-clickable[data-track-id]');
     if(card){ e.preventDefault(); openTrackModal(card); }
   });
+
+  // Deep link: open a specific track's modal on load (#track=<id>), used when a
+  // dependency / «Блокирует» chip on another page links here.
+  function openTrackFromHash(){
+    var m = /(?:^|[#&])track=([^&]+)/.exec(window.location.hash || '');
+    if(!m) return;
+    var tid; try { tid = decodeURIComponent(m[1]); } catch(_e){ tid = m[1]; }
+    var sel = (window.CSS && CSS.escape) ? CSS.escape(tid) : tid;
+    var card = document.querySelector('.track-card-clickable[data-track-id="' + sel + '"]');
+    if(card) openTrackModal(card);
+  }
+  window.addEventListener('hashchange', openTrackFromHash);
+  openTrackFromHash();
 })();
 </script>
 """
