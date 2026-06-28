@@ -82,7 +82,7 @@ The task aggregator (`_aggregator.py`) picks up the marked messages into the pen
 
 When it's needed: the Telethon daemon didn't run (the operator's Windows machine is off / they are in Bali) → `tg_<today>.md` is stale (lag of days, not 30 min). Then I read the chat live via Chrome MCP.
 
-⚠️ **VERSION: only `web.telegram.org/a/`** — the operator's session is logged in there. **`/k/` is NOT logged in** (separate storage), the deep-link `/k/#@username` returns an empty page — do NOT use it. The hash in `/a/` is numeric: `#<peer_id>`, not `#@username`.
+⚠️ **`/a/` is the reading/sync session** (the chat list + history live there). `/a/` and `/k/` are SEPARATE storages. **`/k/#@username` DOES open a single chat** (its own IndexedDB; a blank page on a cold load = ~3-4 s warm-up, **not** "not logged in") — that is the canonical *open-a-chat* deep-link. In `/a/` the hash is numeric `#<peer_id>` and does **not** navigate (the SPA strips it). So: **read in `/a/`, open a chat by `/k/#@username`.**
 
 ⚠️ Telegram holds a WebSocket → the page NEVER reaches document_idle. `find` / `read_page` / `get_page_text` fail with "page still loading". Work ONLY via `javascript_tool` (+ `read_network_requests`).
 
@@ -94,32 +94,43 @@ and is **independent of Telegram's read state**. Absence of a badge ≠ processe
 
 **Iterate the MAPPED CLIENT SET, not the rendered DOM.** The list is virtualised, so a client
 whose row hasn't rendered yet is invisible — scanning "what's on screen" silently drops clients
-(the "догрузить список, чтобы захватить оставшихся" symptom). Walk every client in
-`behavior.channels`, and for each: read the chat's **last-message timestamp** (its `.ListItem`
-last-message + time, or the chat header after a jump) and **process iff it post-dates the client's
-watermark**. If you can't read the timestamp reliably (virtualized list, throttled render, search
-not landing) → **jump to the chat by `peer_id` and compare `data-mid` to `last_message_id`**. The
+(the "догрузить список, чтобы захватить оставшихся" symptom). Walk every **sync endpoint** of
+every client — `behavior.channels.endpoints[]` with `sync:true` and `transport:telegram` (personal
+DM, work channels, assistants; migration 0028), **not just one chat per client** — and for each:
+read the chat's **last-message timestamp** (its `.ListItem` last-message + time, or the chat header
+after a jump) and **process iff it post-dates the endpoint's watermark**. If you can't read the timestamp reliably (virtualized list, throttled render, search
+not landing) → **open the chat (search + the pointer-click sequence, below) and compare `data-mid` to `last_message_id`**. The
 badge and chat-list sort order are at most **hints that may add a chat**; they may **never remove
 one**. When in doubt, **open** — never skip. (Shared rule: `connectors/_chat_collector.md` step 3.)
 
-### Navigation — deep-link first, foreground before search 🔴
-**Prefer `jump_to_chat` by `peer_id`** (`/a/#<peer_id>`): it needs no typed input and survives
-render throttling. Use search only to **discover** a peer_id the first time, then cache it and
-deep-link thereafter. **Before any search, the `/a/` tab must be active/foreground** — a
-backgrounded tab throttles the SPA's render and the React input drops the synthetic `insertText`
-("поиск не срабатывает — вкладка в фоне"). If search still won't land, **fall back to the `peer_id`
-deep-link, never to scanning the chat list for badges.** (Playbook: `connectors/tg/ui_playbook.md`
-→ `jump_to_chat`.)
+### Navigation — open by `/k/#@username`; `/a/` search+click is the fallback 🔴
+**Canonical open = navigate to `https://web.telegram.org/k/#@<username>` + wait ~3-4 s**
+(field-verified 2026-06-28; `/k/` is a separate IndexedDB session, blank-at-first = warm-up).
+`peer_id` (numeric) stays the **identity / cache / `data-mid`-compare** key — ⚠️ **`/a/#<peer_id>` /
+`/a/#@username` do NOT open** the chat (the `/a/` SPA strips the hash). **Fallback**, to open a chat
+*inside `/a/`* (e.g. no @username): foreground the tab → search (native value-setter, below) →
+click the result with the full pointer/mouse sequence. The `/a/` tab must be active/foreground for
+any typed/search input — a backgrounded tab throttles render and drops the React input ("поиск не
+срабатывает — вкладка в фоне"); retry after re-foregrounding, **never** scan the chat list for
+badges. (Playbook: `connectors/tg/ui_playbook.md` → `jump_to_chat`.)
 
-### Chat search (reliable)
-The React search input ROLLS BACK a synthetic value-set. The working approach is a real beforeinput via execCommand:
+### Chat search (reliable) + open
+The React search input **rolls back BOTH `execCommand insertText` AND a plain `.value=`** — use the
+**native value-setter + an `input` event** (field-verified 2026-06-28):
 ```js
-const inp=document.querySelector('input[placeholder="Search"]');
+const inp=document.querySelector('#telegram-search-input, input[placeholder="Search"]');
 inp.focus();
-document.execCommand('selectAll',false,null);
-document.execCommand('insertText',false,'[client]');   // query
+const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;
+set.call(inp,'[client]');                      // query
+inp.dispatchEvent(new Event('input',{bubbles:true}));
 ```
-Read the results from `document.querySelector('#LeftColumn').innerText` — candidates under "Chats and Contacts"/"Global Search". Open a chat: click the needed `.ListItem` with a series of mouse events (pointerdown→mousedown→pointerup→mouseup→click) via `elementFromPoint` at the center. The hash will become `#<peer_id>`.
+Read results from `document.querySelector('#LeftColumn').innerText` — candidates under "Chats and
+Contacts"/"Global Search". Take only a **visible** `.ListItem` (`getBoundingClientRect()` height>0;
+a 0×0 phantom can't be clicked); the result's `.Avatar` carries `data-peer-id` / `id="peer-story<ID>"`
+— cache it. **Open** by dispatching the FULL pointer/mouse sequence at the `.ListItem-button` centre
+(a plain `.click()` fires "вхолостую"): pointerdown→mousedown→pointerup→mouseup→click via
+`new PointerEvent/MouseEvent` with `clientX/clientY` at the button centre. Confirm `#MiddleColumn`
+filled before reading. (Full snippet: `ui_playbook.md` → `jump_to_chat`.)
 
 ### Reading the body — the tab MUST be foreground/active 🔴
 **The single most common live-read failure (the brukh EHC-balance incident): the controlled
@@ -134,7 +145,8 @@ So, before reading the conversation body:
 1. **Bring the `/a/` tab to the foreground and make it the active tab** (`tabs_create_mcp` /
    activate the tab; the same foreground rule the search step needs). A read attempt on a
    backgrounded tab is invalid — re-activate and retry, never report "технически нельзя".
-2. Jump to the chat by `peer_id` (`/a/#<peer_id>`), then **drive the virtualiser**: set
+2. **Open the chat** (search + the pointer-click sequence, see «Chat search») — a bare
+   `/a/#<peer_id>` may not open it — then **drive the virtualiser**: set
    `el.scrollTop = el.scrollHeight` on `.MessageList` to force the recent rows to mount, read
    `el.innerText`. Scroll up in steps if you need older messages.
 3. If the tab cannot be foregrounded at all in this environment, say so explicitly and ask the

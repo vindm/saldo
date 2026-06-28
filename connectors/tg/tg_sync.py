@@ -111,11 +111,10 @@ def tg_resolver(behavior: dict) -> dict | None:
     if tg is None:
         return None
     raw = str(tg.get("id") or "").strip()
-    username = None
-    if raw.startswith("@"):
-        username = raw
-    elif tg.get("username"):
-        username = str(tg["username"]).strip()
+    # Prefer the structured (canon: bare) username field; fall back to an '@'-style id.
+    # resolve_entity does .lstrip('@'), so bare or '@'-prefixed both resolve.
+    uname = str(tg.get("username") or "").strip()
+    username = uname or (raw if raw.startswith("@") else None)
     phone = next((str(c.get("id")).strip() for c in chans
                   if c.get("type") == "phone" and str(c.get("id") or "").strip()), None)
     peer_id = tg.get("peer_id")
@@ -128,6 +127,53 @@ def load_behavior(cid: str) -> dict:
         return json.loads(p.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+
+def _client_phone(behavior: dict) -> str | None:
+    """Any phone on the client — lets a personal DM endpoint resolve by phone when it
+    has neither @username nor a cached peer_id (the brukh case)."""
+    ch = (behavior or {}).get("channels") or {}
+    eps = ch.get("endpoints")
+    if isinstance(eps, list):
+        for e in eps:
+            if e.get("transport") == "phone" and str(e.get("id") or e.get("username") or "").strip():
+                return str(e.get("id") or e.get("username")).strip()
+    for c in _channels(behavior):
+        if c.get("type") == "phone" and str(c.get("id") or "").strip():
+            return str(c.get("id")).strip()
+    return None
+
+def tg_endpoints(behavior: dict) -> list:
+    """Telegram endpoints to SYNC (transport=telegram, sync=true) from the communication graph
+    (`behavior.channels.endpoints[]`, migration 0028). Each item is a resolver enriched with the
+    endpoint id (watermark key) and a primary-DM flag (keeps the client-id watermark for back-compat).
+    Back-compat: if no graph yet, fall back to the single primary resolver."""
+    ch = (behavior or {}).get("channels") or {}
+    eps = ch.get("endpoints")
+    out = []
+    if isinstance(eps, list):
+        phone = _client_phone(behavior)
+        for e in eps:
+            if e.get("transport") != "telegram" or not e.get("sync"):
+                continue
+            uname = e.get("username")
+            is_primary_dm = (e.get("kind") == "dm" and e.get("role") == "client")
+            out.append({
+                "ep_id": e.get("id"),
+                "kind": e.get("kind"), "role": e.get("role"),
+                "label": (f"@{uname}" if uname else (e.get("note") or e.get("id") or "?")),
+                "username": uname,
+                "phone": phone if is_primary_dm else None,
+                "peer_id": e.get("peer_id"),
+                "is_primary_dm": is_primary_dm,
+            })
+        return out
+    # back-compat (pre-0028): the single primary telegram channel
+    rv = tg_resolver(behavior)
+    if rv is not None:
+        rv = dict(rv); rv["ep_id"] = None; rv["is_primary_dm"] = True
+        rv["kind"] = "dm"; rv["role"] = "client"
+        return [rv]
+    return []
 
 # ============== Helpers ==============
 
@@ -388,36 +434,39 @@ async def main_async(args) -> int:
     # Watermark cache (keyed by client id). May be {} / partial on first run.
     state = load_json(STATE_FILE) if STATE_FILE.exists() else {}
 
-    # Membership is DERIVED from behavior.channels, not from tg_state keys.
+    # Membership + fan-out are DERIVED from the communication graph
+    # (behavior.channels.endpoints[], migration 0028): every client with >=1 telegram
+    # endpoint flagged sync:true — and the daemon reads EACH such endpoint (personal DM,
+    # work channels, assistants), not just the personal chat.
     roster = load_roster()
     names = {e["id"]: (e.get("name_short") or e.get("name_full") or e["id"]) for e in roster}
-    resolvers = {}
-    for e in roster:
-        rv = tg_resolver(load_behavior(e["id"]))
-        if rv is not None:
-            resolvers[e["id"]] = rv
-    tg_clients = sorted(resolvers.keys())
+    behaviors = {e["id"]: load_behavior(e["id"]) for e in roster}
+    endpoints_by_client = {cid: eps for cid, eps in
+                           ((cid, tg_endpoints(b)) for cid, b in behaviors.items()) if eps}
+    tg_clients = sorted(endpoints_by_client.keys())
 
     if not roster:
-        # Legacy / no-roster fallback: behave as before, off the watermark file.
+        # Legacy / no-roster fallback: one primary-DM endpoint per tg_state key.
         print("WARN: clients_index.json not found — falling back to tg_state.json keys",
               file=sys.stderr)
         legacy = [k for k in state.keys() if not k.startswith("_")]
         names = {k: k for k in legacy}
         for k in legacy:
-            resolvers.setdefault(k, {"label": state[k].get("tg_username") or k,
-                                     "username": state[k].get("tg_username"),
-                                     "phone": None, "peer_id": state[k].get("peer_id")})
-        tg_clients = sorted(legacy)
+            endpoints_by_client.setdefault(k, [{
+                "ep_id": None, "is_primary_dm": True, "kind": "dm", "role": "client",
+                "label": state[k].get("tg_username") or k,
+                "username": state[k].get("tg_username"),
+                "phone": None, "peer_id": state[k].get("peer_id")}])
+        tg_clients = sorted(set(tg_clients) | set(legacy))
 
     if args.all:
         targets = tg_clients
     elif args.client:
         targets = [c.strip() for c in args.client.split(",") if c.strip()]
-        bad = [c for c in targets if c not in names and c not in resolvers]
+        bad = [c for c in targets if c not in names and c not in endpoints_by_client]
         if bad:
             print(f"ERROR: unknown clients: {bad}", file=sys.stderr)
-            print(f"Available (clients with a telegram channel): {tg_clients}", file=sys.stderr)
+            print(f"Available (clients with a telegram endpoint): {tg_clients}", file=sys.stderr)
             return 1
     else:
         print("ERROR: specify --all or --client SLUG", file=sys.stderr)
@@ -434,13 +483,20 @@ async def main_async(args) -> int:
     me = await client.get_me()
     print(f"✓ authorization ok as @{me.username or me.first_name} (id={me.id})\n")
 
+    n_ep = sum(len(endpoints_by_client.get(c, [])) for c in targets)
+    print(f"  fan-out: {len(targets)} client(s) -> {n_ep} telegram endpoint(s)")
+
     results = []
-    for slug in targets:
-        r = await sync_client(client, slug, resolvers.get(slug),
-                              state.get(slug, {}), args.full, args.lookback_months)
-        results.append(r)
-        if "new_state" in r:
-            state[slug] = r["new_state"]
+    for cid in targets:
+        for ep in endpoints_by_client.get(cid, []):
+            # personal DM keeps the client-id watermark (back-compat); other endpoints
+            # (channels, assistants) get their own watermark key by endpoint id.
+            wkey = cid if ep.get("is_primary_dm") else f"{cid}::{ep.get('ep_id')}"
+            r = await sync_client(client, cid, ep, state.get(wkey, {}),
+                                  args.full, args.lookback_months)
+            results.append(r)
+            if "new_state" in r:
+                state[wkey] = r["new_state"]
 
     await client.disconnect()
 

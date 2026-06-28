@@ -286,6 +286,35 @@ task-classifier: `migrations/RUNTIME_PASS_SPEC.md`, `migrations/TASK_CLASSIFIER.
   per-run cache keyed by client id, not source-of-truth state, rebuilt by the daemon.
   Mirrors the additive-slot pattern of 0017 / 0018 / 0011 / 0013.
 
+- `0027_tg_channel_username_canon.py` — behavior.channels: canonicalize a `telegram`
+  channel's handle to ONE form — `username` WITHOUT '@', `id` = '@'+username (handle
+  channels only; a display-name-only channel with no handle is left untouched). Fixes
+  the two-shapes-for-one-fact left by `0026` (`username` had carried the '@'). Pairs
+  with the `tg_dm_url(username)` link-builder in `engine/_helpers.py` (the canonical
+  open-a-chat deep-link `https://web.telegram.org/k/#@<handle>`), the `tg_resolver`
+  preference for the structured bare `username` in `connectors/tg/tg_sync.py`, and the
+  `tg_channel_noncanon` lint (WARN). Behaviour-preserving (no renderer reads the form;
+  handle channels' visible `id` stays "@handle"), idempotent (canon channel skipped),
+  deterministic/shape-matched (strip/prepend '@' only — no client identities), zero
+  real data. Sibling of `0026`.
+
+- `0028_channel_endpoints_graph.py` — behavior.channels: build the client **communication
+  graph** `endpoints[]` — one registry of every contact point (personal DM, work channels,
+  assistants), each `{id, kind, role, transport, username, peer_id, sync, direction, note}` —
+  back-filled from the three current stores (`primary` / `secondary` / `accounts.quick_access`),
+  so the daemon can fan out over ALL of a client's telegram points instead of only the personal
+  DM (§9 gap: andreev's payment-reports channel + assistant lived only in quick_access → never
+  synced; the assistant was doubled across secondary + quick_access). **Additive** —
+  `primary`/`secondary` are kept for render (Phase 2 moves render onto the graph and drops them).
+  STRUCTURE → deterministic `up()` (one endpoint per existing contact point, channel peer_id
+  parsed from the `/k/#-<id>` link, name-free); MEANING → `RUNTIME_PASS` (dedup the same human
+  across stores, assign `role` by the operator's data — an assistant who prepares taxes is an
+  `accountant`). Pairs with the `tg_sync` endpoint fan-out (sync:true endpoints, personal DM keeps
+  the client-id watermark, others keyed by endpoint id) and the `endpoint_unsynced` lint (a
+  sync:true telegram endpoint must carry a resolver). Proven on `saldo-migrated_data`: 10 clients,
+  14 telegram endpoints; andreev's assistant deduped 2->1 (`@Annazarovaphoto`, accountant).
+  Sibling of `0026`/`0027`.
+
 ## Known follow-ups needing a content decision (not yet migrations)
 
 These came out of the 2026-06-21 audit but are **not** mechanical synonyms, so

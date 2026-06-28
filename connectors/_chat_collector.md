@@ -2,7 +2,7 @@
 
 Shared protocol for browser-driven messengers where **one operator account** holds a separate
 chat per client — **Telegram, WhatsApp, Max**. There is no account to switch (`switch: none`,
-`serves: by_chat`); the fan-out unit is the **conversation**. Each provider skill
+`serves: by_chat`); the fan-out unit is the **endpoint** — a conversation, a shared work channel, or a person who acts for the client (assistant / accountant). Each provider skill
 (`connectors/{tg,whatsapp,max}/`) supplies only its deltas (web URL, session check, handle
 format, quirks) and inherits everything below.
 
@@ -14,19 +14,30 @@ format, quirks) and inherits everything below.
   they're reachable by search (username / phone / peer-id) the moment the session is up. A client
   `quick_access` `service: tg|whatsapp|max` entry is a **routing pointer, not a credentialed
   access point** — ignore any `cred_status` on it (no «уточнить»). Nothing per-chat to request.
-- **chat → client map**, built once from `behavior.channels` (primary/secondary) where
-  `type: <svc>` → its handle (phone or `@username`). Chats mapping to no client are **ignored**.
-- **Per-chat watermark** in `journal/<svc>_state.json`:
-  `{ <client>: {last_message_id, last_ts, last_read_at, unread_count} }`.
+- **endpoint set** = the client communication graph `behavior.channels.endpoints[]`
+  (migration 0028) filtered to `transport: <svc>` AND `sync: true`. 🔴 **A client is NOT one
+  chat.** It can have a personal DM (`role: client`), shared **work channels** (`role:
+  work_channel` — e.g. a payment-reports or documents feed) and **people who act for them** — an
+  assistant or an outsourced accountant (`role: assistant | accountant`). **Read EVERY such
+  endpoint, not only the personal DM** — that is the whole point of the graph; the old behaviour
+  (personal chat only) silently dropped channels and assistants. Each endpoint carries its handle
+  (`@username`) / `peer_id` and its `role`. Endpoints mapping to no chat are **ignored**.
+  (Back-compat: a client with no `endpoints[]` yet falls back to the `primary`/`secondary`
+  `type: <svc>` channel as a single `role: client` endpoint.)
+- **Per-endpoint watermark** in `journal/<svc>_state.json`: the personal DM keeps the
+  **client-id** key (back-compat); every other endpoint is keyed by its **endpoint id**
+  (`<svc>:@handle` / `<svc>:<peer_id>`):
+  `{ <key>: {last_message_id, last_ts, last_read_at, unread_count} }`.
 
 ## Shared algorithm
 
 1. Open the provider's web app; **verify the session is logged in** — else **flag + stop**
    (linking is human-gated: the operator logs in / scans the QR). Reading is `auto` afterward.
-2. Build the chat → client map.
-3. **Detect new without opening — the watermark is the ONLY authority.** For each mapped client,
-   compare the chat's **last-message timestamp / id from the chat list** against that client's
-   watermark in `journal/<svc>_state.json` (`last_ts` / `last_message_id`). A chat is "new" **iff
+2. Build the **endpoint set** — every `endpoints[]` entry with `transport: <svc>` and `sync: true`, across all clients (a client without a graph falls back to its `primary`/`secondary` `type: <svc>` channel).
+3. **Detect new without opening — the watermark is the ONLY authority.** For each **endpoint**
+   (personal DM, work channel, assistant — all of them), compare the chat's **last-message
+   timestamp / id from the chat list** against that endpoint's watermark in
+   `journal/<svc>_state.json` (`last_ts` / `last_message_id`, keyed per the model above). A chat is "new" **iff
    its last message post-dates the watermark** — i.e. Saldo itself has not read past it. Open every
    such chat (most days, few or none).
    🔴 **The unread badge is NOT a "nothing-to-do" signal and must never gate the scan out.** The
@@ -43,11 +54,11 @@ format, quirks) and inherits everything below.
 4. Read messages since the watermark. **Resolve the client's jurisdiction first**
    (INSTRUCTIONS §0) before interpreting.
 5. Snapshot → `journal/inbox/<svc>_<date>.md` (one block per client; the engine source dot).
-6. **mm_update inline** (`connectors/mm_update/SKILL.md`), `source='<svc>:<handle>:<date>'`:
+6. **mm_update inline** (`connectors/mm_update/SKILL.md`), `source='<svc>:<handle>:<date>'`, carrying the endpoint **role** so the write is attributed right — a message from the client's **accountant/assistant** or a **work channel** is *about* the client but is **not the client speaking** (the accountant filing a tax payment, a report dropped in the docs channel):
    action/question/promise → `upsert_track(type='<svc>_action_required')`; movement →
    `add_history_event`; **closing is operator-only (§D)** — on a confirmation, `add_history_event`
    + refresh `next_action` to «Подтвердить закрытие …», never `update_status('done')`.
-7. Advance each processed chat's watermark; write `journal/inbox/<svc>_heartbeat.txt`.
+7. Advance each processed **endpoint's** watermark (by its key); write `journal/inbox/<svc>_heartbeat.txt`.
 8. **mm_update finale** (cross-link reconciliation, `resolves_when`, read-modify-write, lint,
    self-check, audit-log) + the **unconditional dashboard render**.
 

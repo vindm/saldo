@@ -9,7 +9,7 @@ signal becomes state) and `connectors/scheduler/SKILL.md` (how jobs are register
 Collectors ingest **four inbound channels** — email, Telegram, Finkoper (team-via-Полина),
 RU tax news — plus **on-demand RU banks** (T-Bank/Alfa), OFD (month-end), EGRIP, Rosstat.
 **Coverage follows the channel, not the client.** Anything arriving by any other route is
-invisible until a human types it in. And a whole class of facts arrives by **no channel at
+invisible until a human types it in. **Within a client, coverage now follows the ENDPOINT**: the chat collectors fan out over `behavior.channels.endpoints[]` (migration 0028), reading every `sync:true` endpoint — the personal DM, shared **work channels**, and **assistants/accountants** — not just the personal chat (closing the §9 gap where channels and assistants lived only in `quick_access` and were never read). And a whole class of facts arrives by **no channel at
 all** and must be *computed* — and nothing computes it.
 
 > The sweep's `question_resolver` rung logic only resolves questions that already exist. These gaps are signals that
@@ -21,7 +21,7 @@ all** and must be *computed* — and nothing computes it.
 | Source / channel | Collector | Status | Clients relying on it |
 |---|---|---|---|
 | Email | `email` | ✓ daily | meridian, lumen, cobalt, slate, **marlin (НПД чеки)**, ember |
-| Telegram | `tg` | ✓ daily | 10 (vertex, slate, quartz, cedar, marlin, ember, indigo, basalt, meridian, lumen) |
+| Telegram | `tg` | ✓ daily · **per-endpoint fan-out** (DM + work channels + assistants) | 10 (vertex, slate, quartz, cedar, marlin, ember, indigo, basalt, meridian, lumen) |
 | Finkoper / via Полина | `practice_management` | ✓ daily | aurora, harbor, northwind, cobalt, onyx, cirrus, pueblo |
 | RU + ID tax law | `news` | ✓ daily, **multi-jurisdiction** | RU + ID (topics per jurisdiction pack) |
 | T-Bank / Alfa | `tbank` / `alfabank` | ◑ on-demand | ~half |

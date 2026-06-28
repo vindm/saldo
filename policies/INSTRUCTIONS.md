@@ -378,3 +378,12 @@ tracks, behaviour — lives in that client's `state/*.json` + narrative
 `mental_model.md`. This engine doc does NOT enumerate clients or their
 specifics (practice data belongs in the instance, not the public engine).
 Read the client's state first when working a task.
+
+**A client is multiple endpoints, not one chat.** `behavior.channels.endpoints[]` (the communication
+graph, migration 0028) lists every contact point — the client's personal DM, shared **work channels**,
+and **people who act for them** (assistant / outsourced accountant) — each with a `role`, `transport`,
+handle/`peer_id` and a `sync` flag. "Collect a client's messenger" / "check client X in Telegram" means
+walk **all** their `sync:true` endpoints of that transport, **not only the personal chat**, attributing
+each message by its endpoint `role` (a message from the accountant or a work channel is *about* the
+client but is **not the client speaking**). The chat collectors fan out over endpoints
+(`connectors/_chat_collector.md`).

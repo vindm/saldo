@@ -162,6 +162,18 @@ def _short(s, n=70):
     return s if len(s) <= n else s[:n-1] + '…'
 
 
+def tg_dm_url(username):
+    """The single canonical Telegram open-a-chat deep-link for a handle.
+
+    Accepts a bare or '@'-prefixed handle, returns `https://web.telegram.org/k/#@<handle>`
+    (the `/k/` deep-link is the verified way to OPEN a chat; `/a/#…` does not navigate —
+    see `connectors/tg/ui_playbook.md`). None for an empty/handle-less channel, so a
+    display-name-only telegram channel yields no link.
+    """
+    h = str(username or '').lstrip('@').strip()
+    return f"https://web.telegram.org/k/#@{h}" if h else None
+
+
 def _format_date_ru(d):
     """13 May, Wednesday (full day name). Localized via _strings (MONTHS_GEN
     + full weekday names selected by LOCALE)."""

@@ -699,6 +699,28 @@ def lint_client(cid, _xclient=None):
             _v(viols, 'warn', cid, 'tg_unresolvable',
                f'behavior: telegram channel "{_cid_val[:40]}" has no @username, no phone, '
                f'and no cached peer_id — the TG daemon cannot resolve it (chat falls out of sync)')
+    # O2. TG handle canon (migration 0027): a handle channel must carry username WITHOUT '@'
+    # and id == '@'+username. Display-name-only channels (no username) are exempt.
+    for c in _all_ch:
+        if c.get('type') != 'telegram':
+            continue
+        _u = str(c.get('username') or '').strip()
+        if not _u:
+            continue  # no handle → nothing to canonicalize
+        _idv = str(c.get('id') or '').strip()
+        if _u.startswith('@') or _idv != '@' + _u.lstrip('@'):
+            _v(viols, 'warn', cid, 'tg_channel_noncanon',
+               f'behavior: telegram handle not canon (want username="<handle>" no @, '
+               f'id="@<handle>"): username={_u!r} id={_idv!r}')
+    # O3. Communication-graph coverage (migration 0028): every telegram endpoint flagged
+    # sync:true must carry a resolver (peer_id or @username), else the daemon can't read it.
+    for ep in (bch.get('endpoints') or []):
+        if not isinstance(ep, dict) or ep.get('transport') != 'telegram' or not ep.get('sync'):
+            continue
+        if ep.get('peer_id') in (None, '') and not str(ep.get('username') or '').strip():
+            _v(viols, 'warn', cid, 'endpoint_unsynced',
+               f'behavior: telegram endpoint "{str(ep.get("id"))[:40]}" (role {ep.get("role")}) '
+               f'is sync:true but has no peer_id and no @username — the daemon cannot read it')
 
     # collect for cross-client reconciliation
     if _xclient is not None:
