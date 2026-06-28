@@ -195,6 +195,80 @@ task-classifier: `migrations/RUNTIME_PASS_SPEC.md`, `migrations/TASK_CLASSIFIER.
   Python reads it yet → dashboards byte-identical), idempotent, **self-healing** (renames a
   legacy `ntpn` key → `payment_ref`), walks the year-suffixed keys generically. Mirrors 0017.
   (Filename retains `_ntpn` for now; the field is `payment_ref`.)
+- `0021_event_source_unify.py` — tasks: unify a history event's channel into one
+  key `source`. (1) Rename `history[].by` → `source` where the event has no
+  `source` (the canonical writer `_tracks.add_history_event` always writes
+  `source`; a stray `by` hid the source chip at render time — no event carries
+  both keys, so the rename is lossless). (2) Canonicalize channel synonyms by
+  SHAPE (no names): `chat…`/`чат` → `chat`, `finkoper…` → `finkoper`, preserving
+  the `:detail` suffix, original in `source_legacy`. Idempotent (canonical value
+  skipped); the `assist.by` attribution field is untouched. Pairs with the
+  render-side `source`-or-`by` fallback (`_overview_v2.py`, `_track_modal.py`),
+  the `source_label` channel map + machine-id fallback (`_helpers.py`), the
+  `event_by_key` / `event_source_noncanon` lint checks, and the disambiguating
+  note in `connectors/mm_update/SKILL.md`.
+- `0022_operator_source_canonical.py` — tasks: collapse the "operator acting
+  directly" source channel into one token `cowork` (rendered «Ирина», chosen by
+  Dima). Split per the runtime-pass dividing rule: deterministic `up()` renames the
+  ENGINE-VOCABULARY synonyms `owner`/`operator` → `cowork` (name-free, shape-matched);
+  a `RUNTIME_PASS` judges the operator's NAME (and any unforeseen operator-self
+  spelling) — which must NOT be hardcoded in the public repo — from the operator's
+  OWN data, surfaced by `preflight` as per-distinct human/name-like, non-machine,
+  non-external candidates; client/bank/system tokens are left. Original in
+  `source_legacy`; idempotent. Sibling of `0021`; pairs with the `owner`/`operator`
+  arm of the `event_source_noncanon` lint check (display already maps
+  `cowork`/`owner`/`operator` → «Ирина»). Proven on `saldo-migrated_data`: up()
+  owner/operator→cowork (deterministic); RUNTIME_PASS folded the operator-name
+  candidate into `cowork` while bank/process tokens were correctly LEFT; 0
+  operator-name channels remain, the operator label renders on the cards, lint
+  0 errors, integrity clean.
+- `0023_event_source_vocabulary.py` — tasks: bring every history/task `source`
+  into the CLOSED channel vocabulary (`engine/_helpers._CANON_CHANNELS`; human
+  reference `policies/event-sources.md`); the specific ref moves into the free
+  `:detail`. Closes the "source was free-form — channel + reason + document all
+  dumped in one field" mess. Deterministic `up()` does the name-free shapes
+  (`migrated_from_*` → `migration:`, known BANK names → `bank:<Name>`, `*_unclear`
+  → `system:`, aliases `1с`→`1c`/`telegram`→`tg`/`mail`→`email`/`joint`→`session`);
+  a `RUNTIME_PASS` classifies the residue by MEANING (operator action/decision/
+  manual/`сверка` → `cowork`, document/evidence → `document`, analysis/monitor/
+  daemon → `system`, news feed → `news`). Original in `source_legacy`; idempotent
+  (preflight residue scan → 0). Banks are generic (`bank`, name in detail; the card
+  shows the name). Pairs with the closed-set `event_source_noncanon` lint (WARN)
+  and the rule wired into `connectors/mm_update/SKILL.md` + `policies/INSTRUCTIONS.md`.
+  Proven on `saldo-migrated_data` (up() ~180 deterministic; RUNTIME_PASS 75 —
+  cowork 46 / system 18 / document 9 / news 2; 0 non-canonical channels remain,
+  lint 0 noncanon, integrity clean, idempotent).
+- `0024_operator_chat_session_to_cowork.py` — tasks: fold the operator source
+  channels `chat`/`session` into `cowork`, finishing the three-bucket model
+  (policies/event-sources.md): a CONNECTOR brought the signal, the OPERATOR did
+  it (`cowork`), or the ENGINE did (`system`). `chat` (operator's chat with the
+  assistant) and `session` (joint session) are the operator, not a separate
+  connector → `cowork` (already render «Ирина»). Deterministic, name-free; head
+  chat/session → cowork, `:detail` preserved, original in `source_legacy`;
+  idempotent. `_CANON_CHANNELS` now mirrors the model — the ingest connectors
+  from `connectors/` (banks → `bank`, `documents` → `document`, + `egrul`/
+  `websbor`) ∪ {cowork} ∪ system-family. Proven on `saldo-migrated_data` (36
+  folded across 9 clients; 0 non-canonical channels remain, lint 0 noncanon,
+  integrity clean).
+- `0025_event_source_backfill_missing.py` — tasks: backfill a `source` channel on
+  history/task events that have NONE. 0021–0024 canonicalized the `source` VALUE of
+  events that HAD one; ~half the historical events carry no `source` key at all
+  (migration seeds, dedup/merge notes, monitor/priority notes, operator notes, and
+  the status/close events `update_status` wrote without a source), so they rendered
+  a BLANK chip on «Недавно обновили / закрыли». Deterministic `up()` fills the
+  unambiguous, name-free shapes — the exact engine onboarding strings («Задача
+  заведена при переходе…», «Конвертирован в state/tasks.json v2.0») → `migration`;
+  a `Status:`/`Статус:` head (operator status/close, §D) → `cowork`; a `RUNTIME_PASS`
+  classifies the rest by MEANING per `policies/event-sources.md` (engine structural
+  note → `system`; operator decision/manual/correction/note, incl. operator-name
+  prefix read from the operator's OWN data → `cowork`; document → `document`; news
+  feed → `news`; unclear → `system`). Absent original recorded as `source_legacy=null`;
+  idempotent (sourceless re-scan → 0). Pairs with the source invariant at write time
+  (`_tracks.update_status` now stamps `source`, default `cowork`), the never-blank
+  render guard (`_overview_v2._track_source_label`), and the new `event_missing_source`
+  lint (WARN). Proven on `saldo-migrated_data` (315 backfilled — 104 deterministic /
+  211 runtime: 175 system, 35 cowork, 1 news; 0 sourceless remain, lint 0 errors +
+  0 event_missing_source, integrity clean, idempotent).
 
 ## Known follow-ups needing a content decision (not yet migrations)
 

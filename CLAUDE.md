@@ -47,6 +47,7 @@ Any change must keep these enforceable and surfaced in `config/instance.yaml →
 
 - Per client: `state/*.json` (identity, regime, accounts, financials, counterparties, risks, behavior, tasks) + narrative `mental_model.md` + append-only `history.jsonl`.
 - **Never edit generated HTML directly.** Change state, then regenerate.
+- **Render budget — a daemon never runs a full `generate.py`.** The sandbox kills any command >45s and background processes don't survive it, so a full serial render over all clients is killed mid-run (a timeout-flavoured frozen-date failure). Render **scoped** instead — `generate.py --clients=<affected>` + `--aggregates` (per-client pages are isolated → output byte-identical to a full run); the per-client render is parallel (`ABA_GEN_SERIAL=1` to force serial). The single full render on a timer is the `dashboards` job (07:45). Canonical procedure: `connectors/_rebuild.md`.
 - All state writes go through `engine/state_ops.py` primitives (`state_read`, `state_write`, `mental_model_read/write`, `history_append`) — each does backup + atomic temp-file rename + UTF-8 validation. Don't hand-write JSON files for the data dir.
 - The engine in `engine/` must stay **practice-agnostic**: no client names, no hardcoded paths, no "if email X then field Y" business logic. That judgement belongs to the agent, not the code.
 
@@ -124,6 +125,7 @@ The runtime's inputs and upkeep are scheduled **collectors** (fetch an external 
 
 ## Known gaps (verify before relying)
 
+- **Daemon-reliability contract designed, not built** — the render-decoupling landed (collectors scoped-render via `connectors/_rebuild.md`; only the `dashboards` 07:45 job runs a full render), but the broader contract is pending: **verified-heartbeat** (write the heartbeat only after postconditions hold — exit codes, `LINT OK`, expected files fresh — not merely at end-of-run), **fail-loud-with-evidence** (on an unmet postcondition surface it precisely; never confabulate a cause, e.g. the «virtiofs/cache» story behind a killed render), and **resumable per-run checkpoints** for multi-client work (generalize the migration ledger's rungs). To author: `connectors/_daemon_contract.md`.
 - **`resolution_sweep` OS-job not registered live yet** — declared in `config → schedule` (07:00, the single resolution daemon; the separate `question_resolver` 07:00 job was folded into it) but needs a real end-to-end run on an operator machine via `connectors/scheduler/SKILL.md` (same tail as the other daemons); a midday second pass is desirable, not yet scheduled.
 - **Payroll follow-ons (id):** the employee CARD is designed (entity-linking) but not wired live (clickable roster row → derived card); auto-ingest of the monthly ведомость by the `documents` collector is proven but not wired; the THR-method parity residual is surfaced but not reduced to zero; a **PPh Badan 22%** transition and a **PPN/PKP** (e-Faktur) path remain unbuilt.
 - **Fresh-checkout config** — `config/instance.yaml` is git-ignored; on a new clone re-copy `instance.example.yaml` and set `data.dir`, or the demo renders against a dead path.

@@ -10,6 +10,7 @@ Created 2026-05-24.
 import json
 from _strings import t
 from _config import LOCALE
+from _helpers import _SRC_LABELS, _SRC_GENERIC
 
 
 def _loc(en, ru):
@@ -462,6 +463,19 @@ TRACK_MODAL_JS = r"""
     return s.trim();
   }
 
+  // Readable label for an event source channel — mirrors _helpers.source_label
+  // so the history timeline never shows a raw machine id (resolution_sweep,
+  // chat_irina, morning_scan_…). Map is the single Python source, injected here.
+  var SRC_LABELS = __SRC_LABELS_JSON__;
+  function srcLabel(s){
+    s = String(s||'').split(':')[0].trim();
+    if(!s) return '';
+    var ch = s.toLowerCase();
+    if(Object.prototype.hasOwnProperty.call(SRC_LABELS, ch)) return SRC_LABELS[ch];
+    var machine = ch.indexOf('_') >= 0 || /[0-9]/.test(ch) || /[a-z]/.test(ch);
+    return machine ? '__SRC_GENERIC__' : s;
+  }
+
   function badgeClass(badge){
     if(!badge) return 'bc-grey';
     var b = String(badge).toLowerCase();
@@ -883,8 +897,8 @@ TRACK_MODAL_JS = r"""
       if(hist.length){
         elHistBody.innerHTML = hist.slice().reverse().map(function(h){
           var autoCls = h.auto ? ' auto' : '';
-          var src = (h.source || '').trim();
-          var srcHtml = src ? '<span class="h-src">' + esc(src) + '</span>' : '';
+          var src = (h.source || h.by || '').trim();
+          var srcHtml = src ? '<span class="h-src">' + esc(srcLabel(src)) + '</span>' : '';
           var autoHtml = h.auto ? '<span class="h-auto">__AUTO__</span>' : '';
           return '<div class="tm-history-item' + autoCls + '">' +
             '<span class="h-date">' + esc(fmtWhen(h)) + '</span>' +
@@ -958,6 +972,8 @@ TRACK_MODAL_JS = (
     .replace('__RELATED_TASK__', t('Related task'))
     .replace('__ACTION__', t('Action'))
     .replace('__AUTO__', t('auto'))
+    .replace('__SRC_LABELS_JSON__', json.dumps(_SRC_LABELS, ensure_ascii=False))
+    .replace('__SRC_GENERIC__', _SRC_GENERIC)
     .replace('__TS_RU_LOC_JSON__', _ts_ru_loc_json())
     .replace('__TS_INTERNAL_JSON__', _ts_internal_json())
     .replace('__PAY_L10N_JSON__', _pay_l10n_json())

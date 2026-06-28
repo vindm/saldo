@@ -181,7 +181,50 @@ _SRC_LABELS = {
     'alfa': 'Альфа', 'alfabank': 'Альфа', 'vtb': 'ВТБ', 'ofd': 'ОФД',
     'operator': 'Ирина', 'cowork': 'Ирина', 'owner': 'Ирина',
     'joint': 'сессия', 'session': 'сессия', '1c': '1С', '1с': '1С',
+    # automated daemons / collectors → readable operator labels (not raw ids)
+    'resolution_sweep': 'авто-разбор', 'deadline_monitor': 'монитор сроков',
+    'threshold_monitor': 'монитор порога', 'staleness_monitor': 'монитор',
+    'mm_update': 'система', 'dashboards': 'система',
+    # chat / manual entry by the operator
+    'chat_irina': 'чат', 'chat': 'чат', 'чат': 'чат',
+    'finkoper_chat': 'Финкопер', 'manual': 'вручную',
+    # closed-vocabulary channels (policies/event-sources.md)
+    'bank': 'банк', 'document': 'документ', 'system': 'система',
+    'migration': 'импорт', 'миграция': 'импорт',
+    'whatsapp': 'WhatsApp', 'max': 'MAX',
+    'egrul': 'ЕГРЮЛ', 'websbor': 'Росстат',
 }
+
+# A source whose channel is an unmapped machine id (latin snake_case / digits)
+# collapses to this generic label so the operator never sees a raw token.
+_SRC_GENERIC = 'система'
+
+# ── Closed vocabulary of source channels (the human reference is
+#    policies/event-sources.md). The `detail` after ':' is free; the channel head
+#    must be one of these. state_lint.event_source_noncanon flags anything else;
+#    migrations 0021–0024 cleaned the historical free-form values into this set.
+#    The model is three buckets: a CONNECTOR brought the signal, OR the operator
+#    (`cowork`), OR the engine (`system`).
+#
+#    The CONNECTOR channels are NOT hardcoded as truth — they DERIVE from
+#    `config/instance.yaml → connectors` (`_config.CONNECTOR_CHANNELS`, the same
+#    declaration the scheduler reconciles daemons against), so enabling a connector
+#    in config auto-registers its source channel with no engine edit. The literals
+#    below are the safe DEFAULT/baseline (used when no config is present — repo,
+#    tests, demo); config is additive on top.
+from _config import CONNECTOR_CHANNELS as _CFG_CONNECTOR_CHANNELS
+
+_CANON_CHANNELS = frozenset({
+    # operator — Mom acting directly (chat with the assistant, decision,
+    # manual entry, a reconciliation she did herself)
+    'cowork',
+    # ingest connectors — baseline; config/instance.yaml extends this set
+    'tg', 'whatsapp', 'max', 'email', 'finkoper', 'bank', 'ofd', 'news',
+    'document', '1c', 'egrul', 'websbor',
+    # system — engine daemons / processes, + the one-time legacy import
+    'system', 'migration', 'resolution_sweep', 'deadline_monitor',
+    'threshold_monitor', 'staleness_monitor', 'mm_update', 'dashboards',
+} | set(_CFG_CONNECTOR_CHANNELS))
 
 
 def client_avatar(name):
@@ -204,9 +247,27 @@ def client_avatar(name):
 
 
 def source_label(source):
-    """Short Russian-facing label for a source channel ('tg:@x' -> 'TG')."""
-    ch = str(source or '').split(':', 1)[0].strip().lower()
-    return _SRC_LABELS.get(ch, ch)
+    """Short Russian-facing label for a source channel ('tg:@x' -> 'TG').
+
+    Known channels and daemons map to readable operator labels. An unmapped
+    machine id (latin snake_case / contains digits or '_') collapses to the
+    generic «система» so the operator never sees a raw token like
+    'resolution_sweep' or 'morning_scan_27.05'. Human (Cyrillic) source text
+    that isn't a machine id passes through unchanged.
+    """
+    head, _, detail = str(source or '').partition(':')
+    raw = head.strip()
+    if not raw:
+        return ''
+    ch = raw.lower()
+    if ch == 'bank':
+        d = detail.strip()
+        return d if d else _SRC_LABELS['bank']   # show the specific bank name
+    if ch in _SRC_LABELS:
+        return _SRC_LABELS[ch]
+    looks_machine = ('_' in ch or any(c.isdigit() for c in ch)
+                     or any('a' <= c <= 'z' for c in ch))
+    return _SRC_GENERIC if looks_machine else raw
 
 
 def _plural_ru(n, one, few, many):
@@ -269,6 +330,21 @@ def relative_when(s, today=None):
         return '{} {}'.format(d.day, MONTHS_GEN[d.month - 1])
     except Exception:
         return s
+
+
+def reltime_span(s, today=None):
+    """Same relative «когда» as relative_when, wrapped so the browser keeps it live.
+
+    Emits `<span class="reltime" data-ts="<iso>">label</span>`; the reltime ticker
+    in NEW_JS_FRAGMENT recomputes the label against the live clock every minute, so
+    «3 часа назад» stays true even on a dashboard left open for hours. The server
+    still renders the correct label, so it's right with JS off too. Bare (un-spanned)
+    label when the value isn't datable."""
+    label = relative_when(s, today)
+    raw = str(s or '')
+    if len(raw) < 10:
+        return _esc(label)
+    return '<span class="reltime" data-ts="%s">%s</span>' % (_esca(raw), _esc(label))
 
 
 def _snapshot_time():

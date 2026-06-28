@@ -18,6 +18,7 @@ Built from config + the runbooks — never invented:
 
 - **`config/instance.yaml → schedule`**: `name: "HH:MM"` (local to `instance.timezone`). The set of jobs and their cadence.
 - **`config/instance.yaml → connectors.<x>.enabled`** + jurisdiction: a job is in `D` only if its connector is enabled and relevant to this instance (e.g. `tbank`/`alfabank` only for the direct circuit; a non-RU instance drives its pack's portals).
+- **Relevance = the clients' channels actually in use** (`engine/_channels.reconcile_channels()`). A client-driven collector whose channel is `declared_unused` — enabled in config but NO current client uses it (evidence: `behavior.json → channels`, `accounts.json → bank_accounts`/`ofd`/`quick_access`) — is **dropped from `D` (disabled)**, so the instance runs only the daemons its clients need. Operator-/instance-level connectors (`news`, `egrul`) are always relevant; on-demand keys (`registry`/`stats_portal`/`bank`) are not scheduled anyway; manual sources without a daemon (`1c`, `cowork`) are not connectors. Example on the current data: `max` is enabled but unused → not scheduled.
 - **`connectors/<name>/SKILL.md`**: the job's runbook — used to build the task prompt. The scheduled prompt is a **thin loader that points at the runbook**, never a copy of its logic, so editing the runbook does not require re-registering.
 
 ## The actual set (`A`) and ownership — the hard safety line

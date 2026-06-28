@@ -72,6 +72,26 @@ accomplish the goal, append a Field note **to that primitive** in the data-dir o
 failing step. Promotion of a note into a canonical engine step is two-tier (instance-local
 corroboration → developer curates upstream + version + scenario).
 
+**Recover toward the goal, never toward a weaker signal (all providers).** "Recover" means reaching
+the *same* goal by a **more reliable** route — not switching to a cheaper proxy that masks the
+failure. Three general anti-patterns (the 2026-06-27 TG incident):
+
+- **Never substitute an external UI indicator for our own state.** A messenger's unread badge, a
+  mail "seen" flag, a "new" dot reflects whether a *human* glanced at it — **not** whether Saldo
+  processed it. The detection authority is always our **watermark/state** (`_chat_collector.md`
+  step 3); such indicators may only ever *add* a candidate, never *remove* one.
+- **Never iterate the rendered DOM when you mean a defined set.** Virtualised lists / lazy pages
+  render only part of the data, so "scan what's on screen" silently drops items. Enumerate the
+  **intended set** (e.g. the mapped client set) and navigate to each.
+- **The tab must be active/foreground to drive typed input.** A backgrounded SPA throttles render
+  and drops synthetic input (the "поиск не срабатывает" symptom). Foreground first; and **prefer an
+  input-free primitive** (a deep-link/URL such as `jump_to_chat` by id) over typing/search when one
+  exists.
+
+When a step fails, fix the **cause** (foreground, deep-link, enumerate the set) and **capture a
+Field note**. Masking the failure with a degraded method and moving on is a **loop violation**, not
+a recovery.
+
 ## Provenance
 
 Each Field note: `date · trigger · the working step · evidence · status (tentative | corroborated | promoted)`.

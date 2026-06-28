@@ -19,6 +19,7 @@ from _config import BRAND_NAME, BRAND_TAGLINE, BRAND_MONOGRAM
 from _helpers import dynamic_groups, clients_in_group, _slugify_group, _group_label
 from _strings import t
 from _icons import icon, ICON_SPRITE, ICON_CSS
+from _onboarding import render_add_group_button
 
 SIDEBAR_CSS = (
     ".layout-shell{display:grid;grid-template-columns:248px 1fr;gap:0;"
@@ -50,6 +51,21 @@ SIDEBAR_CSS = (
     # above it — reads as a divider caption, not a clickable peer of the nav items.
     ".sb-group{font-size:10.5px;text-transform:uppercase;letter-spacing:0.14em;"
     "color:var(--text-muted);padding:18px 10px 8px;font-weight:400}"
+    # The «Clients» caption shares its row with a quiet "+" that opens the
+    # add-a-new-group prompt (render_add_group_button). The header keeps its own
+    # padding; the row only zeroes the caption's bottom padding so the "+" lines
+    # up with the caption baseline.
+    ".sb-group-row{display:flex;align-items:center}"
+    ".sb-group-row .sb-group{flex:1;padding-right:6px}"
+    ".sb-add-group{flex-shrink:0;width:20px;height:20px;margin-right:8px;"
+    "display:inline-flex;align-items:center;justify-content:center;"
+    "padding:0;border:1px solid var(--border);background:var(--bg-card);"
+    "color:var(--text-muted);border-radius:6px;cursor:pointer;"
+    "font-size:15px;line-height:1;font-family:inherit;"
+    "transition:background var(--transition),color var(--transition),"
+    "border-color var(--transition)}"
+    ".sb-add-group:hover{background:var(--accent-soft);color:var(--accent);"
+    "border-color:var(--accent)}"
     # Nav rows: airy 14.5px on a roomy 8px rhythm — inactive rows are the calmer
     # --text-secondary, going full --accent (navy) when selected.
     ".sb-item{display:flex;align-items:center;gap:11px;padding:8px 10px;"
@@ -150,7 +166,9 @@ def render_sidebar(active='dashboard', counts=None):
         _sb_item('calendar.html', t('Calendar'), 'calendar', active, icon=icon('calendar')),
         _sb_item('periods.html', t('Periods'), 'periods', active, icon=icon('periods')),
         '<div class="sb-divider"></div>',
-        '<div class="sb-group">' + t('Clients') + '</div>',
+        # «Clients» caption + the "+" that opens the add-a-new-group prompt.
+        '<div class="sb-group-row"><div class="sb-group">' + t('Clients') + '</div>'
+        + render_add_group_button() + '</div>',
     ]
     parts.extend(_client_group_items(active))
     # Bottom-pinned block: "How to use", the update affordance, and the footer

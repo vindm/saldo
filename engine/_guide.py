@@ -13,7 +13,7 @@ from _helpers import _format_date_ru
 from _overview_v2 import OVERVIEW_V2_CSS
 from _overview_shared import render_header
 from _sidebar import render_sidebar, SIDEBAR_CSS
-from _css import PROMPT_MODAL_CSS
+from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 
 
 def render_guide():
@@ -279,5 +279,6 @@ def render_guide():
         + head
         + content
         + '</main></div>'
-        '</body></html>'
+        + PROMPT_MODAL_HTML + PROMPT_MODAL_JS
+        + '</body></html>'
     )

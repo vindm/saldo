@@ -43,19 +43,22 @@ See (what is in which file and which client_id to look at where) + `state_schema
 
 The operator's decision 2026-06-07: every track update is attributed to a source, so that the track card shows the full log "when / what / from where" across all channels. `add_history_event(..., source=...)` **fails with a ValueError without a source**. Format `channel:detail`:
 
-The tag is a free-form `channel:detail` string. The examples below are illustrative; in the live (Russian) deployment the `detail` part is written in Russian.
+The channel HEAD is a **closed vocabulary** — full reference and rules in `policies/event-sources.md`. The `detail` after the first `:` is free and, in the live (Russian) deployment, written in Russian. Pick the channel by WHO/WHAT brought the update; never invent a new head (`state_lint.event_source_noncanon` flags drift). The operator herself is `cowork`; a source document is `document`; an automated pass is `system`. (A source is always one of three: a CONNECTOR, the operator `cowork`, or `system` — `chat`/`session` are the operator → `cowork`.)
 
-| Source | Tag | Example |
+| Source | Tag (`channel:detail`) | Example |
 |---|---|---|
-| The operator in Cowork chat | `operator:chat` | `operator:chat` |
+| The operator herself (chat / decision / manual entry / reconciliation she did) | `cowork:detail` | `cowork:chat`, `cowork:решение-10.06` |
 | Client's Telegram | `tg:@username` | `tg:@vertex_tg` |
-| Letter | `email:sender` | `email:FTS`, `email:counterparty` |
+| WhatsApp / MAX | `whatsapp:…` / `max:…` | `whatsapp:+7…` |
+| Letter | `email:sender` | `email:ФНС`, `email:контрагент` |
 | Finkoper task/chat | `finkoper:#NNNNN` | `finkoper:#10000001` |
-| News/law | `news:topic` | `news:USN` |
-| Bank (statement/feed) | `<bank>:statement` | `tbank:statement`, `alfa:statement` |
-| OFD | `ofd:z-report` | `ofd:z-report` |
+| News/law | `news:topic` | `news:УСН` |
+| Bank — ANY bank, the name in the detail | `bank:<Name>` | `bank:Сбер`, `bank:Т-Банк`, `bank:Mandiri` |
+| OFD | `ofd:detail` | `ofd:z-отчёт` |
 | 1C | `1c` | `1c` |
-| Joint discovery in a session | `joint:session` | `joint:session` |
+| Source document / evidence (statement, contract, tax notice, KUDIR) | `document:detail` | `document:выписка-ЕНС`, `document:договор-№63` |
+| Automated pass / daemon / analysis / monitor | `system:detail` | `system:сверка-сроков` |
+
 
 `event` (the event text) — **a human-readable Russian description for the operator (58 years old, an accountant)**. FORBIDDEN: anglicisms (dedup, migrated, tracks, awaiting, backfill), bare track ids (i6+i12, client_a_yat_…), tech abbreviations ("resolves_when×0"). Write as for a person: "Merged similar tasks", "Task created", "Deadline moved from 31.05 to 10.06", "Client sent reconciliation acts". The track card (`_track_modal`) shows the source badge and hides purely technical events (hardening/resolves_when/backfill); an event without a source — has no badge.
 
@@ -138,6 +141,7 @@ When you do resolve something autonomously, keep it **visible**: write the fact 
 - **Examples:** the client signed a payment order, sent documents, answered a question
 - **High:** add_history_event + if needed `_tracks.update_status` (active → awaiting, awaiting → done)
 - **Medium:** add an event marked `🔧 presumed`
+- **🔴 Every event carries a full `ts` (date + clock), not a date alone.** `add_history_event` / `update_status` stamp `ts = datetime.now().astimezone().isoformat(timespec='seconds')` (plus a `date` for legacy readers) automatically — so **always go through those wrappers**; never hand-write a `history[]` entry with only `date`. The relative «когда» on the card (`relative_when`) renders the clock («3 часа назад») when a `ts` is present and only collapses to «сегодня / вчера / N дней назад» when it is missing, and «Недавно обновили» now **orders by the full `ts`**, so a date-only event sinks below same-day timed ones. Date-only is reserved for genuinely undated historical/migrated events — do not fabricate a clock time for them.
 
 ### D. Closing a thread — the daemon NEVER closes; it updates, the operator decides (2026-06-21)
 
@@ -467,6 +471,12 @@ A fact is considered applied ONLY when all links are reconciled and the checks h
   "by": "mm_update:<channel>"
 }
 ```
+
+> **Do not confuse this `by` with a history-event channel.** `assist.by` is the
+> *hypothesis attribution* (who computed the guess). A **history event's** channel
+> is ALWAYS `source` (`channel:detail`, written by `_tracks.add_history_event`),
+> **never** `by` — a `by` on a `history[]` event hides the source chip and is
+> flagged by the `event_by_key` lint (migration `0021` heals existing data). The channel HEAD must be one of the closed vocabulary in `policies/event-sources.md` (e.g. `cowork`/`tg`/`finkoper`/`bank`/`document`/`system`/`migration`); the specific ref (handle, ticket, filename, decision) goes in the free `:detail`. `state_lint.event_source_noncanon` flags anything outside the set; migrations 0021–0023 cleaned the historical data into it.
 
 **When to fill/refresh:** whenever any signal touches the track (or during a cognitive review). Refresh the `hypothesis`, reassemble 2–4 actions, mark one `recommended` if confident, set `confidence` + `updated_at` + `by`. Untouched tracks keep the previous `assist` (it ages → lint highlights `assist_stale` >30 days).
 

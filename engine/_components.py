@@ -45,11 +45,25 @@ def due_class(days):
 def due_badge(days):
     """THE shared due-date badge — relative text (due_label) + urgency colour
     (due_class). Reused everywhere (hero «Сводка», plan rows, track modal).
-    CSS lives in DESIGN_TOKENS_CSS (.due-badge) so it's available on every page."""
+    CSS lives in DESIGN_TOKENS_CSS (.due-badge) so it's available on every page.
+
+    A `days` value already encodes the effective due date (due = TODAY + days), so
+    we re-emit that date as `data-due`; the due ticker in NEW_JS_FRAGMENT then
+    recomputes the wording + urgency colour against the live clock, keeping «через
+    2 дня» honest on a tab left open across midnight. Server still renders the right
+    value, so it's correct with JS off (and on a date-less badge, no data-due)."""
     txt = due_label(days)
     if not txt:
         return ''
-    return '<span class="due-badge due-badge-' + due_class(days) + '">' + _esc(txt) + '</span>'
+    attr = ''
+    if days is not None:
+        try:
+            import generate
+            from datetime import timedelta
+            attr = ' data-due="%s"' % (generate.TODAY + timedelta(days=int(days))).isoformat()
+        except Exception:
+            attr = ''
+    return '<span class="due-badge due-badge-' + due_class(days) + '"' + attr + '>' + _esc(txt) + '</span>'
 
 
 EVENT_CSS = (
@@ -70,6 +84,7 @@ EVENT_CSS = (
     "display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}"
     ".ev-right{flex-shrink:0;margin-left:10px;display:flex;flex-direction:column;"
     "align-items:flex-end;gap:4px;text-align:right}"
+    ".ev-badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}"
     ".ev-status{font-size:12px;padding:2px 9px;border-radius:10px;white-space:nowrap;font-weight:500}"
     ".ev-when{font-size:12px;color:var(--text-muted);white-space:nowrap}"
     ".ev-more{display:block;width:100%;text-align:center;padding:9px;background:none;border:none;"
@@ -77,16 +92,30 @@ EVENT_CSS = (
 )
 
 
-def event_row(name, head, detail='', when='', status=None, attrs=''):
+def event_row(name, head, detail='', when='', status=None, attrs='', due_html='', when_html=''):
     """One system-event row. `head`/`detail` are caller-built HTML (escape plain
     text yourself). `status` = (label, bg, fg) or None. `attrs` = data-track-*
-    attributes to make the row open the track modal (empty = non-clickable)."""
+    attributes to make the row open the track modal (empty = non-clickable).
+    `due_html` = an optional pre-built .due-badge shown first in the right column
+    (used by the «Требуют вас» queue, which is ordered by due date).
+    `when_html` = a pre-built, already-escaped HTML «когда» (e.g. a reltime_span
+    that ticks live); takes precedence over `when`, which is plain text and escaped."""
     ini, av = client_avatar(name)
-    bits = ''
+    # Right column, two rows: line 1 = badges (due + status) side by side,
+    # line 2 = event recency (source · date). The two pills share one line so a
+    # row never grows to three stacked items.
+    badges = ''
+    if due_html:
+        badges += due_html
     if status:
         lab, bg, fg = status
-        bits += '<span class="ev-status" style="background:%s;color:%s">%s</span>' % (bg, fg, _esc(lab))
-    if when:
+        badges += '<span class="ev-status" style="background:%s;color:%s">%s</span>' % (bg, fg, _esc(lab))
+    bits = ''
+    if badges:
+        bits += '<div class="ev-badges">%s</div>' % badges
+    if when_html:
+        bits += '<div class="ev-when">%s</div>' % when_html
+    elif when:
         bits += '<div class="ev-when">%s</div>' % _esc(when)
     right = '<div class="ev-right">%s</div>' % bits if bits else ''
     cls = 'ev-row track-card-clickable' if attrs else 'ev-row'

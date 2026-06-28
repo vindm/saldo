@@ -93,6 +93,7 @@ UI = {
         'You are on the latest version. There is nothing to update right now. When a new version appears, an «Update available» item will show up in the menu on the left.': 'У вас самая свежая версия. Обновлять сейчас нечего. Когда появится новая версия, в меню слева появится пункт «Доступно обновление».',
         # ── _onboarding.py — "Add client" call-to-action ──────────────────
         'Add client': 'Добавить клиента',
+        'Add group': 'Добавить группу',
         # ── _sidebar.py — left menu ───────────────────────────────────────
         'Dashboard': 'Дашборд',
         'Plan': 'План',

@@ -19,7 +19,7 @@ from datetime import datetime, date
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from state_ops import CLIENT_FOLDERS, _client_dir  # single source of the client list
-from _helpers import track_stale_days  # R8
+from _helpers import track_stale_days, _CANON_CHANNELS  # R8 + closed source vocab
 import _vocab
 from _status import CANON_LABEL, normalize_status  # canonical track-status vocabulary
 from _track_modal import _TS_RU_LOC, INTERNAL_TS_KEYS  # type_specific label coverage
@@ -236,6 +236,40 @@ def lint_client(cid, _xclient=None):
             if k not in _ts_known and k not in _ts_internal:
                 _v(viols, 'info', cid, 'i18n_ts_key',
                    f'{t.get("id")}: type_specific key "{k}" has no label (add to _TS_RU_LOC or INTERNAL_TS_KEYS)')
+
+    # E4. EVENT SOURCE KEY — a history event's channel lives in `source` (the key
+    # add_history_event writes). A stray `by` is a runtime slip that hides the
+    # source chip at render time (the renderer falls back to it, but state should
+    # be single-key). `event_source_noncanon` (warn) flags any channel head not in
+    # the closed vocabulary `_CANON_CHANNELS` (policies/event-sources.md).
+    # Migrations 0021/0022/0023 cleaned the historical data into that set; this
+    # flags drift. (NB: `assist.by` is a different, legitimate field and is NOT
+    # checked here — only history[] events and the task-level source.)
+    def _noncanon_channel(val):
+        # The channel head (before ':') must be in the closed vocabulary
+        # (policies/event-sources.md). Empty source is not flagged here.
+        c = str(val or '').split(':', 1)[0].strip().lower()
+        return bool(c) and c not in _CANON_CHANNELS
+    for t in tasks:
+        for ev in (t.get('history') or []):
+            if not isinstance(ev, dict):
+                continue
+            if 'by' in ev:
+                _v(viols, 'info', cid, 'event_by_key',
+                   f'{t.get("id")}: history event uses `by` for its channel (canonical is `source`; run: python3 engine/migrate.py up --apply)')
+            if _noncanon_channel(ev.get('source')):
+                _v(viols, 'warn', cid, 'event_source_noncanon',
+                   f'{t.get("id")}: source channel "{ev.get("source")}" not in the closed vocabulary (see policies/event-sources.md; run: python3 engine/migrate.py up --apply)')
+            # E4b. MISSING SOURCE — every history event must carry a channel (the
+            # invariant add_history_event / update_status enforce). A sourceless
+            # event rendered a blank chip on «Недавно обновили / закрыли». Migration
+            # 0025 backfills the historical ones; this flags any new drift. (warn.)
+            if not (str(ev.get('source') or '').strip() or str(ev.get('by') or '').strip()):
+                _v(viols, 'warn', cid, 'event_missing_source',
+                   f'{t.get("id")}: history event has no source channel (run: python3 engine/migrate.py up --apply)')
+        if _noncanon_channel(t.get('source')):
+            _v(viols, 'warn', cid, 'event_source_noncanon',
+               f'{t.get("id")}: task source channel "{t.get("source")}" not in the closed vocabulary (see policies/event-sources.md)')
 
     # F. RISKS -> linked_tasks point to existing tasks
     risks = (states.get('risks') or {}).get('risks', [])

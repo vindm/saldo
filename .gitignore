@@ -39,6 +39,7 @@ config/instance.yaml
 
 # Backups, caches, OS noise
 *.bak_*
+*.bak[0-9]*
 *.before_rerun_*
 __pycache__/
 *.pyc

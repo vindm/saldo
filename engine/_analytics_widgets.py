@@ -592,7 +592,7 @@ def render_activity_widget(activity, max_show=10, show=5):
     recently-updated / recently-closed track lists (avatar + headline, right
     column: relative date). One component, one style."""
     today = _today()
-    from _helpers import relative_when
+    from _helpers import reltime_span
     from _components import event_row, render_event_section
     # Dedup by (action, title, client, date)
     seen, order = {}, []
@@ -608,12 +608,12 @@ def render_activity_widget(activity, max_show=10, show=5):
         return ''
     rows = []
     for it in activity:
-        when = relative_when(it.get("ts") or (it["date"].isoformat() if it.get("date") else ""), today)
+        when_html = reltime_span(it.get("ts") or (it["date"].isoformat() if it.get("date") else ""), today)
         head = _esc(it.get("title", ""))
         cnt = it.get("count", 1)
         if cnt > 1:
             head += ' <span class="ev-when">×%d</span>' % cnt
-        rows.append(event_row(it.get("client_name") or "", head, '', when, None, ''))
+        rows.append(event_row(it.get("client_name") or "", head, '', '', None, '', when_html=when_html))
     return render_event_section(tp('📋 Latest decisions', '📋 Последние решения'),
                                 rows, count=len(activity), show=show)
 

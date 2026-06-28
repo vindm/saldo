@@ -22,7 +22,11 @@ change by learning. This file is the contract for that.
    trust the AI's belief of success.
 3. **On deviation** (a step fails, a selector is gone, no instruction exists): **recover** —
    observe the live page (`get_page_text`/screenshot), accomplish the goal by reasoning over the
-   DOM — then **capture** what actually worked. Never silently repeat a failing step.
+   DOM — then **capture** what actually worked. Never silently repeat a failing step, **and never
+   mask it by degrading to a weaker signal/method** (an external read-indicator instead of our
+   watermark, or scanning the rendered DOM instead of the intended set) — recover toward the goal
+   via a *more reliable* route, then capture (`connectors/_ui_playbook.md` → "Recover toward the
+   goal").
 4. **Capture (auto, tentative)** — append a dated **Field note** to the data-dir overlay
    `<data.dir>/journal/playbook_notes/<provider>.md` (what changed, the working step, the
    evidence) — **never** the engine playbook. This records; it does not change canonical behavior,

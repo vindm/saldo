@@ -184,7 +184,7 @@ def render_update_page():
     from _overview_shared import render_header
     from _overview_v2 import OVERVIEW_V2_CSS
     from _sidebar import render_sidebar, SIDEBAR_CSS
-    from _css import PROMPT_MODAL_CSS
+    from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 
     status = get_update_status()
     head = render_header()
@@ -260,5 +260,6 @@ def render_update_page():
         + '<main class="main-content"><div class="upd-wrap">'
         + head + body + script
         + '</div></main></div>'
-        '</body></html>'
+        + PROMPT_MODAL_HTML + PROMPT_MODAL_JS
+        + '</body></html>'
     )

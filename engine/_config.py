@@ -101,3 +101,31 @@ def _load_locale():
 
 
 LOCALE = _load_locale()
+
+
+# ── Connector channels — the source-of-truth list of "what can bring a signal".
+#    Declared once in `config/instance.yaml → connectors` (the SAME declaration the
+#    scheduler reconciles daemons against). The source-channel vocabulary derives
+#    from this, so enabling a connector in config makes its `source` channel valid
+#    without touching engine code. A few config keys name the channel differently
+#    than the connector folder — mapped here; the rest pass through verbatim.
+_CONNECTOR_CHANNEL_ALIAS = {
+    "practice_management": "finkoper",   # Finkoper
+    "documents": "document",             # the documents collector writes `document`
+    "stats_portal": "websbor",           # national statistics portal
+    "registry": "egrul",                 # company-registry extracts
+    # `bank` stays `bank` (one generic channel; providers tbank/alfabank in detail)
+}
+
+
+def _connector_channels(cfg):
+    """The set of source-channel tokens implied by the declared connectors.
+    All declared connectors count (enablement governs the SCHEDULER, not whether a
+    historical `source` on that channel is valid vocabulary)."""
+    out = set()
+    for key in (cfg.get("connectors") or {}):
+        out.add(_CONNECTOR_CHANNEL_ALIAS.get(key, str(key).strip().lower()))
+    return out
+
+
+CONNECTOR_CHANNELS = frozenset(_connector_channels(_CFG))

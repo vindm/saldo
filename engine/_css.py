@@ -455,6 +455,56 @@ NEW_JS_FRAGMENT = (
     "function showTooltip(btn,msg){const t=document.createElement('div');t.className='copy-tooltip';t.textContent=msg;"
     "document.body.appendChild(t);const r=btn.getBoundingClientRect();"
     "t.style.top=(r.top-40+window.scrollY)+'px';t.style.left=r.left+'px';setTimeout(()=>t.remove(),3000);}</script>"
+    # Live relative-time ticker — mirrors engine/_helpers.relative_when EXACTLY
+    # (same thresholds, same RU plural rules) so .reltime[data-ts] spans stay true
+    # to the wall clock on a dashboard left open. Server still renders the right
+    # label, so this is a progressive enhancement (correct with JS off).
+    "<script>(function(){"
+    "function pl(n,a,b,c){n=Math.abs(n)%100;var k=n%10;"
+    "if(n>10&&n<20)return c;if(k>1&&k<5)return b;if(k===1)return a;return c;}"
+    "function rel(s){if(!s||s.length<10)return null;var now=new Date();"
+    "if(s.indexOf('T')>-1){var dt=new Date(s);if(!isNaN(dt.getTime())){var secs=(now-dt)/1000;"
+    "if(secs>=0){if(secs<60)return '\\u0442\\u043e\\u043b\\u044c\\u043a\\u043e \\u0447\\u0442\\u043e';"
+    "var m=Math.floor(secs/60);"
+    "if(m<60)return m+' '+pl(m,'\\u043c\\u0438\\u043d\\u0443\\u0442\\u0443','\\u043c\\u0438\\u043d\\u0443\\u0442\\u044b','\\u043c\\u0438\\u043d\\u0443\\u0442')+' \\u043d\\u0430\\u0437\\u0430\\u0434';"
+    "var h=Math.floor(secs/3600);"
+    "if(h<24)return h+' '+pl(h,'\\u0447\\u0430\\u0441','\\u0447\\u0430\\u0441\\u0430','\\u0447\\u0430\\u0441\\u043e\\u0432')+' \\u043d\\u0430\\u0437\\u0430\\u0434';}}}"
+    "var y=+s.slice(0,4),mo=+s.slice(5,7),da=+s.slice(8,10);if(!y||!mo||!da)return null;"
+    "var d=new Date(y,mo-1,da),t0=new Date(now.getFullYear(),now.getMonth(),now.getDate());"
+    "var delta=Math.round((t0-d)/86400000);"
+    "if(delta<=0)return '\\u0441\\u0435\\u0433\\u043e\\u0434\\u043d\\u044f';"
+    "if(delta===1)return '\\u0432\\u0447\\u0435\\u0440\\u0430';"
+    "if(delta<7)return delta+' '+pl(delta,'\\u0434\\u0435\\u043d\\u044c','\\u0434\\u043d\\u044f','\\u0434\\u043d\\u0435\\u0439')+' \\u043d\\u0430\\u0437\\u0430\\u0434';"
+    # >=7d: the label is a server-rendered absolute date that never changes with
+    # the clock, so the ticker returns null and leaves the server text untouched.
+    "return null;}"
+    "function tick(){var els=document.querySelectorAll('.reltime[data-ts]');"
+    "for(var i=0;i<els.length;i++){var v=rel(els[i].getAttribute('data-ts'));if(v)els[i].textContent=v;}}"
+    "tick();setInterval(tick,60000);})();</script>"
+)
+
+# Live due-badge ticker — mirrors _components.due_label + due_class EXACTLY, so a
+# .due-badge[data-due] recomputes its wording AND urgency colour against the wall
+# clock (a tab open across midnight: «через 2 дня» -> «завтра» -> «сегодня» ->
+# «просрочено», colour shifting with it). Localised words injected from t() so it
+# tracks the operator locale instead of hardcoding RU. Server still renders the
+# correct value (progressive enhancement, correct with JS off).
+import json as _json
+_DUE_LABELS_JSON = _json.dumps(
+    {'over': t('overdue'), 'today': t('today'), 'tom': t('tomorrow'), 'inn': t('in {} d.')},
+    ensure_ascii=True,
+)
+NEW_JS_FRAGMENT += (
+    "<script>(function(){var L=" + _DUE_LABELS_JSON + ";"
+    "function dtext(n){if(n<0)return L.over;if(n===0)return L.today;if(n===1)return L.tom;return L.inn.replace('{}',n);}"
+    "function dcls(n){if(n<0)return 'overdue';if(n===0)return 'today';if(n<=7)return 'soon';return 'far';}"
+    "function dtick(){var els=document.querySelectorAll('.due-badge[data-due]');"
+    "var now=new Date();var t0=new Date(now.getFullYear(),now.getMonth(),now.getDate());"
+    "for(var i=0;i<els.length;i++){var s=els[i].getAttribute('data-due');if(!s||s.length<10)continue;"
+    "var y=+s.slice(0,4),mo=+s.slice(5,7),da=+s.slice(8,10);if(!y||!mo||!da)continue;"
+    "var d=new Date(y,mo-1,da);var n=Math.round((d-t0)/86400000);"
+    "els[i].textContent=dtext(n);els[i].className='due-badge due-badge-'+dcls(n);}}"
+    "dtick();setInterval(dtick,60000);})();</script>"
 )
 
 

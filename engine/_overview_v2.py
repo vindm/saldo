@@ -23,7 +23,7 @@ from generate import (
     DESIGN_TOKENS_CSS, OVERVIEW_SPECIFIC_CSS, NEW_JS_FRAGMENT,
 )
 from _deadlines import collect_deadlines, collect_awaiting
-from _helpers import _translate_tech_terms, relative_when, source_label
+from _helpers import _translate_tech_terms, relative_when, reltime_span, source_label
 from _strings import t, tp
 from _sidebar import render_sidebar, SIDEBAR_CSS
 from _health import calculate_health
@@ -698,6 +698,24 @@ def _track_latest_event_day(tr):
     return best
 
 
+def _track_latest_event_ts(tr):
+    """Most recent history-event timestamp on the track as a sortable ISO string.
+
+    Prefers the full `ts` (date+clock); falls back to date-only `date` (which
+    sorts as start-of-day — the honest position for an event whose clock time was
+    never recorded). '' when the track has no datable history. Orders «Недавно
+    обновили» by REAL time, not by calendar day, so a 3-hours-ago event no longer
+    sinks below one merely stamped «сегодня» (display and sort now share the same
+    clock; see relative_when)."""
+    best = ''
+    ft = tr.get('_full_track') or {}
+    for h in (ft.get('history') or tr.get('history') or []):
+        s = str(h.get('ts') or h.get('date') or '')
+        if s and s > best:
+            best = s
+    return best
+
+
 def _track_has_daemon_event_since(tr, cut):
     if cut is None:
         return False
@@ -786,19 +804,64 @@ def _build_modal_attrs(tr):
     return _re.sub(r'\s*data-track-type="[^"]*"', '', attrs)
 
 
-def _track_event_row(tr):
-    """A track rendered as the shared event row (clickable -> track modal)."""
+def _track_due_days(tr):
+    """Days from TODAY to the track's due_date (None when no date / unparseable)."""
+    from datetime import datetime as _dtt
+    ft = tr.get('_full_track') or {}
+    raw = ft.get('due_date') or tr.get('due_date') or ''
+    if not raw or not TODAY:
+        return None
+    try:
+        d = _dtt.strptime(str(raw)[:10], '%Y-%m-%d').date()
+        return (d - TODAY).days
+    except Exception:
+        return None
+
+
+def _track_source_label(tr, last):
+    """Source chip for an event row, never blank. Prefer the shown event's own
+    source; when it has none (legacy events / sourceless status writes), fall back
+    to the most recent history event that DOES carry one; last resort «система».
+    A render-side safety net — the real fix is the source invariant at write time
+    (add_history_event / update_status) plus the backfill migration."""
+    s = (last or {}).get('source') or (last or {}).get('by')
+    lbl = source_label(s) if s else ''
+    if lbl:
+        return lbl
+    ft = tr.get('_full_track') or {}
+    for h in reversed(ft.get('history') or tr.get('history') or []):
+        s2 = h.get('source') or h.get('by')
+        if s2:
+            l2 = source_label(s2)
+            if l2:
+                return l2
+    return source_label('system')  # «система»
+
+
+def _track_event_row(tr, with_due=False, with_when=True):
+    """A track rendered as the shared event row (clickable -> track modal).
+
+    `with_due=True` adds the shared .due-badge onto the badge line of the right
+    column. `with_when` controls line 2 (the event recency, source · date): on
+    for the recency zones («Недавно обновили/закрыли»), OFF for the «Требуют вас»
+    queue — there the deadline is the point and last-touched date is noise."""
     cn = tr.get('client_name') or ''
     cn_short = cn.replace('SP ', '') if cn else ''
     title = _esc(_translate_tech_terms(tr.get('title', '') or tr.get('track_id', '')))
     head = (('<span class="ev-cl">' + _esc(cn_short) + ' · </span>' if cn_short else '') + title)
     last = _track_last_event(tr)
     detail = _esc(_translate_tech_terms((last.get('event') or '').strip())) if last else ''
-    when = ''
-    if last:
-        when = ' · '.join(p for p in [source_label(last.get('source')),
-                                      relative_when(last.get('ts') or last.get('date'), TODAY)] if p)
-    return event_row(cn, head, detail, when, _status_spec(tr), _build_modal_attrs(tr))
+    when_html = ''
+    if last and with_when:
+        src = _track_source_label(tr, last)
+        rel = reltime_span(last.get('ts') or last.get('date'), TODAY)
+        when_html = ' · '.join(p for p in [_esc(src) if src else '', rel] if p)
+    due_html = ''
+    if with_due:
+        from _components import due_badge
+        due_html = due_badge(_track_due_days(tr))
+    return event_row(cn, head, detail, '', _status_spec(tr), _build_modal_attrs(tr),
+                     due_html=due_html, when_html=when_html)
 
 
 def collect_recent_track_zones(mm, days=3, closed_days=2, max_show=12):
@@ -822,14 +885,18 @@ def collect_recent_track_zones(mm, days=3, closed_days=2, max_show=12):
         elif raw_status == 'deferred':
             continue
         else:
-            d = _track_latest_event_day(tr)
-            if not d:
+            ts = _track_latest_event_ts(tr)
+            if not ts:
                 continue
             daemon = _track_has_daemon_event_since(tr, cut) if cut else False
-            updated.append(((1 if daemon else 0, d.isoformat()), tr))
+            # Secondary key is the FULL ts (date+clock), so within the same
+            # daemon-float class rows order by real time, not calendar day.
+            updated.append(((1 if daemon else 0, ts), tr))
     updated.sort(key=lambda x: x[0], reverse=True)
     closed.sort(key=lambda x: x[0], reverse=True)
-    upd_rows = [_track_event_row(tr) for _, tr in updated][:max_show]
+    # updated rows carry the due badge (line 1, next to status); closed rows don't —
+    # a deadline is moot once the task is done.
+    upd_rows = [_track_event_row(tr, with_due=True) for _, tr in updated][:max_show]
     cls_rows = [_track_event_row(tr) for _, tr in closed][:max_show]
     title_upd = tp('🔄 Recently updated', '🔄 Недавно обновили')
     title_cls = tp('✅ Recently closed', '✅ Недавно закрыли')
@@ -862,7 +929,9 @@ def collect_needs_operator_zone(mm, max_show=20, embedded=False):
         prio = 0 if (ft.get('priority') or tr.get('priority')) == 'high' else 1
         return (due == '', due, prio)
     rows.sort(key=_key)
-    body = [_track_event_row(tr) for tr in rows[:max_show]]
+    # with_due: the queue is ordered by due date, so each row carries its deadline badge.
+    # with_when=False: drop the last-touched line — on a to-do queue the deadline is the point.
+    body = [_track_event_row(tr, with_due=True, with_when=False) for tr in rows[:max_show]]
     title = tp('🔔 Needs you', '🔔 Требуют вас')
     if embedded:
         # Folded into the «Сводка» widget as its single actionable sub-list (one
@@ -1013,6 +1082,48 @@ def render_clients_grid_compact(mm, deadlines, awaiting,
     )
 
 
+def render_channels_panel():
+    """Compact «channels in use vs collectors» panel — derived from client state
+    (`_channels.reconcile_channels()`): which channels current clients actually use,
+    and gaps (a collector enabled but unused → can be off; a channel used with no
+    connector). Read-only; silent if anything is unavailable."""
+    try:
+        from _channels import reconcile_channels
+        from _helpers import source_label
+        r = reconcile_channels()
+    except Exception:
+        return ''
+    used = r.get('used') or {}
+    if not used:
+        return ''
+    chip = ('display:inline-flex;align-items:center;gap:6px;padding:3px 10px;'
+            'border:1px solid var(--border);border-radius:8px;font-size:13px;'
+            'background:var(--bg-page);color:var(--text-secondary)')
+    chips = ''.join(
+        '<span style="' + chip + '">' + _esc(source_label(c))
+        + ' <b style="color:var(--text-primary)">' + str(len(cl)) + '</b></span>'
+        for c, cl in used.items())
+    notes = []
+    if r.get('declared_unused'):
+        labels = ', '.join(source_label(c) for c in r['declared_unused'])
+        notes.append(tp('not used by any client — collector can be off: ',
+                        'ни у кого из клиентов — сборщик можно отключить: ') + labels)
+    if r.get('used_undeclared'):
+        labels = ', '.join(source_label(c) for c in r['used_undeclared'])
+        notes.append(tp('used but no connector enabled: ',
+                        'используется, но коннектор не включён: ') + labels)
+    note_html = ''.join(
+        '<div style="margin-top:8px;font-size:13px;color:var(--text-muted)">'
+        + _esc(n) + '</div>' for n in notes)
+    return (
+        '<div class="aw-widget" style="margin-bottom:var(--space-lg)">'
+        '<div class="aw-head">' + tp('📡 Channels & collectors', '📡 Каналы и сборщики') + '</div>'
+        '<div style="display:flex;flex-wrap:wrap;gap:8px">' + chips + '</div>'
+        + note_html +
+        '</div>'
+    )
+
+
 def render_overview_v2():
     # JSON-first (2026-06-19): deadlines/awaiting come from state, not registries.
     deadlines = collect_deadlines(TODAY)
@@ -1068,7 +1179,11 @@ def render_overview_v2():
     # recently CLOSED tracks, grouped by day. Includes changes from daemons AND the
     # operator (daemon-touched tracks float to the top in the morning).
     updated_zone, closed_zone = collect_recent_track_zones(mm)
-    needs_embedded = collect_needs_operator_zone(mm, embedded=True)
+    # «Требуют вас» is now its OWN standalone section (same visual language as
+    # «Открытые вопросы» / «Недавно обновили») rather than a sub-list folded into
+    # the «Сводка» widget — splits the narrative brief from the actionable list so
+    # each block reads as one thing. (2026-06-28)
+    needs_zone = collect_needs_operator_zone(mm)
     recent_link = ''
     if updated_zone or closed_zone:
         recent_link = (
@@ -1142,7 +1257,7 @@ def render_overview_v2():
     summary_block = (
         '<div class="aw-widget" style="margin-bottom:var(--space-lg)">'
         '<div class="aw-head">' + tp('🧭 Today summary', '🧭 Сводка на сегодня') + '</div>'
-        + _summary_lead + needs_embedded +
+        + _summary_lead +
         '</div>'
     )
     title = t("Bookkeeping — ") + _format_date_ru(TODAY)
@@ -1159,10 +1274,12 @@ def render_overview_v2():
         + '<main class="main-content">'
         + head + _w['stats']
         + summary_block
+        + needs_zone
         + questions_zone
         + updated_zone + closed_zone + recent_link
         + _w['activity']
         + mail_block + news_block
+        + render_channels_panel()
         + global_mic
         + '</main></div>'
         + PROMPT_MODAL_HTML

@@ -5,6 +5,20 @@
 copies the trigger prompt below) or writes *«добавь клиента»*. Not a developer
 flow — Dima ships the engine; the operator adds her own clients.
 
+There are **two entry points**, same workflow and same gates:
+- **«Добавить клиента»** on a group page — adds a client, defaulting to the group
+  the operator was viewing (see the group-bound context below).
+- the **«+»** next to the **«Клиенты»** caption in the left menu — adds a client
+  into a **brand-new group**. A group is not a separate object: it exists when a
+  client carries that `group` value, so "new group" = onboard the first client of
+  a new group. The «+» copies a context that says so, and a body that tells the
+  runtime to **ask for the new group's name first**, then collect the first
+  client (kept in sync with `engine/_onboarding.py → render_add_group_button`):
+  > - **Context (always included):** *«Создай новую группу клиентов в Saldo и
+  >   добавь в неё первого клиента по workflow connectors/onboarding/SKILL.md.»*
+  > - **Body (editable, default):** *«Спроси, как назвать новую группу, потом
+  >   задавай вопросы по одному и собери данные первого клиента.»*
+
 > **Trigger prompt** the CTA copies (kept in sync with `engine/_onboarding.py`).
 > It splits the way the modal does: a static **context line** that is always
 > included, plus a short **body** the operator can edit. Both are thin — they
@@ -121,6 +135,19 @@ Steps 1–3 only ask and resolve — they write **nothing**. **Do NOT run step 4
    python3 engine/generate.py          # rebuild the dashboards (derived view)
    python3 engine/system_integrity_check.py
    ```
+
+   **Channel coverage (assemble daemons from the client's real channels).**
+   A new client can bring a channel the instance does not yet collect. Run
+   `python3 engine/_channels.py` (it reads the just-written `behavior.json →
+   channels` and `accounts.json → bank_accounts`/`ofd`/`quick_access`). If the
+   client's channel appears under **«используется, но коннектор не включён»**
+   (a messenger/bank not in `config/instance.yaml → connectors`), tell the
+   operator to enable that connector — the scheduler then picks up its daemon
+   and its `source` channel becomes valid automatically (no engine edit; a new
+   one only needs a one-line label in `_helpers._SRC_LABELS`). Conversely, a
+   collector now used by nobody can be turned off. Keeps the running daemons
+   matched to the clients' real channels — see `policies/event-sources.md` and
+   `connectors/scheduler/SKILL.md`.
 
 6. **Verify — runtime behaviour, not just a green render (CLAUDE.md Invariant 0).**
    Confirm the new client appears on its group page, then **scenario-verify**:

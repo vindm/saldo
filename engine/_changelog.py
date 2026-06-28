@@ -18,7 +18,7 @@ from generate import (
 from _overview_v2 import OVERVIEW_V2_CSS
 from _overview_shared import render_header
 from _sidebar import render_sidebar, SIDEBAR_CSS
-from _css import PROMPT_MODAL_CSS
+from _css import PROMPT_MODAL_CSS, PROMPT_MODAL_HTML, PROMPT_MODAL_JS
 from _strings import t
 import state_ops
 
@@ -181,5 +181,6 @@ def render_changelog():
         + head
         + content
         + '</main></div>'
-        '</body></html>'
+        + PROMPT_MODAL_HTML + PROMPT_MODAL_JS
+        + '</body></html>'
     )

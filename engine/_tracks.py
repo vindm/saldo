@@ -154,9 +154,15 @@ def add_history_event(client_id, track_id, event_text, source='', auto=False):
     return False
 
 
-def update_status(client_id, track_id, new_status, reason=''):
+def update_status(client_id, track_id, new_status, reason='', source='cowork'):
     """Change a track's status + add a history event (state/tasks.json).
-    On close (done/completed/dismissed) sets completed_at."""
+    On close (done/completed/dismissed) sets completed_at.
+
+    Every history event MUST carry a `source` channel (same invariant as
+    add_history_event) — a status change with no source rendered a blank chip on
+    «Недавно закрыли». A close is the operator's decision (§D), so the default is
+    `cowork` (→ «Ирина»); a daemon flipping a status (e.g. active→awaiting) passes
+    its own channel."""
     from datetime import date, datetime
     try:
         data, tasks = _load_tasks(client_id)
@@ -172,6 +178,7 @@ def update_status(client_id, track_id, new_status, reason=''):
                 'date': date.today().isoformat(),
                 'ts': datetime.now().astimezone().isoformat(timespec='seconds'),
                 'event': 'Status: {} -> {}'.format(old, new_status) + (' ({})'.format(reason) if reason else ''),
+                'source': source or 'cowork',
                 'auto': False,
             })
             return _save_tasks(client_id, data, ctx='status_{}_{}'.format(track_id, new_status))
